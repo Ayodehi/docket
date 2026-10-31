@@ -41,7 +41,7 @@ Data Docket would add to its existing detail query: review node IDs, and reviewe
 | Token | Today | With this change |
 |---|---|---|
 | Classic | `repo`, which already includes write | No change to scopes; the token already allows these actions |
-| Fine-grained (recommended) | Pull requests: read | Pull requests: **write**. All other permissions stay read-only. |
+| Fine-grained | Pull requests: read | Pull requests: **write**. All other permissions stay read-only. |
 
 A fine-grained token limited to the owners you review for, with Pull requests write, is the smallest grant that allows these actions. It cannot push code, merge, or change settings.
 

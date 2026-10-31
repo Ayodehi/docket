@@ -17,8 +17,11 @@ struct SignInView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 4) {
-                Link("Create a classic token (scopes: repo, read:org)", destination: Self.classicURL)
-                Link("Create a fine-grained token (read: pull requests, checks, commit statuses, contents, metadata; org members)", destination: Self.fineGrainedURL)
+                Link("Create a classic token (scopes: repo, read:org). Recommended.", destination: Self.classicURL)
+                Link("Create a fine-grained token (resource owner: your organization; read: pull requests, commit statuses, contents; organization members)", destination: Self.fineGrainedURL)
+                Text("Fine-grained tokens have no Checks permission, so CI results from GitHub Actions may not show. Organization permissions such as Members appear only when the resource owner is an organization.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .font(.callout)
             SecureField("Personal access token", text: $token)

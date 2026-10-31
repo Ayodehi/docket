@@ -23,10 +23,12 @@ Required access:
 
 | Capability | Classic scopes | Fine-grained permissions |
 |---|---|---|
-| Read PRs, reviews, checks (private repos) | `repo` | Pull requests: read; Checks: read; Commit statuses: read; Contents: read; Metadata: read |
-| Resolve team review requests | `read:org` | Organization Members: read |
+| Read PRs, reviews, checks (private repos) | `repo` | Pull requests: read; Commit statuses: read; Contents: read; Metadata: read (automatic). There is no Checks permission for fine-grained tokens, so check runs (GitHub Actions) may be missing from CI status; this is unverified against a live token. |
+| Resolve team review requests | `read:org` | Members: read. An organization permission, offered only when the token's resource owner is an organization. |
 | Notifications trigger (optional) | `notifications` | Not supported (verify) |
 | Merge, re-run CI (v1.1) | `repo`, `workflow` if re-running Actions | Pull requests: write; Contents: write; Actions: write |
+
+Corrected 2026-10-30: the fine-grained column listed a Checks permission, which GitHub does not offer for fine-grained tokens (checked against GitHub's "Permissions required for fine-grained personal access tokens"). The setup screen recommends a classic token for that reason.
 
 v1 is read-only. Do not request write access until the v1.1 features ship, and make them opt-in.
 

@@ -114,11 +114,15 @@ Then run `xcodegen generate` again.
 
 1. **Sign in.** Paste a GitHub token, or import the one the GitHub CLI uses. Docket stores it only in your login Keychain.
 
+   A classic token is recommended: it covers everything Docket shows.
+
    | Capability | Classic token scopes | Fine-grained token permissions |
    |---|---|---|
-   | Read PRs, reviews, and checks | `repo` | Pull requests, Checks, Commit statuses, Contents, and Metadata: read |
-   | Tell team review requests from direct ones | `read:org` | Organization Members: read |
+   | Read PRs, reviews, and CI status | `repo` | Pull requests, Commit statuses, and Contents: read (Metadata is added automatically) |
+   | Tell team review requests from direct ones | `read:org` | Members (an organization permission): read |
    | Optional review actions | (included in `repo`) | Pull requests: write |
+
+   Fine-grained tokens have two limits. GitHub offers no Checks permission for them, so CI results from GitHub Actions (check runs) may not show; commit statuses from other CI services do. And organization permissions such as Members only appear when the token's **Resource owner** is an organization, not your personal account; your organization may also need to allow fine-grained tokens. A fine-grained token covers one resource owner, so PRs in other owners' private repositories will not appear.
 
    If your organization uses SAML single sign-on, authorize the token for it; Docket shows the link when GitHub asks.
 
