@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 xcodegen generate >/dev/null
-xcodebuild -project Docket.xcodeproj -scheme Docket -configuration Release -destination 'platform=macOS' \
+xcodebuild -project Docket.xcodeproj -scheme Docket -configuration Release -destination "platform=macOS,arch=$(uname -m)" \
   -derivedDataPath .build/Release build | grep -E '(error|warning):|BUILD' | grep -v -i appintents || true
 
 built=".build/Release/Build/Products/Release/Docket.app"

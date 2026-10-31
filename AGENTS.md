@@ -6,7 +6,7 @@ Native macOS menu bar app (Swift 6, SwiftUI, macOS 14+) that watches the user's 
 
 ```bash
 xcodegen generate
-xcodebuild -project Docket.xcodeproj -scheme Docket -destination 'platform=macOS' build
+xcodebuild -project Docket.xcodeproj -scheme Docket -destination "platform=macOS,arch=$(uname -m)" build
 swift test --package-path Packages/ReviewKit
 ```
 

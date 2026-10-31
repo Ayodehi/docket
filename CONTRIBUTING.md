@@ -12,7 +12,7 @@ Thanks for helping. Bug reports, fixes, and focused features are welcome.
 ```bash
 brew install xcodegen
 xcodegen generate
-xcodebuild -project Docket.xcodeproj -scheme Docket -destination 'platform=macOS' build
+xcodebuild -project Docket.xcodeproj -scheme Docket -destination "platform=macOS,arch=$(uname -m)" build
 swift test --package-path Packages/ReviewKit
 ```
 

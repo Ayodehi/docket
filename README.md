@@ -24,18 +24,76 @@ It answers one question: whose move is it, and on which PR?
 
 ## Build and install
 
+Docket is built from source. These steps take you from nothing to Docket running in your menu bar.
+
+### 1. Install the tools
+
+1. Install Xcode from the Mac App Store, open it once, and let it finish installing its components.
+2. Make sure the command-line tools use that Xcode:
+
+   ```bash
+   xcode-select -p
+   ```
+
+   If this does not print a path inside `Xcode.app`, run `sudo xcode-select -s /Applications/Xcode.app`.
+3. Install XcodeGen with [Homebrew](https://brew.sh):
+
+   ```bash
+   brew install xcodegen
+   ```
+
+### 2. Get the source
+
 ```bash
 git clone https://github.com/Ayodehi/docket.git
 cd docket
-xcodegen generate
-open Docket.xcodeproj
 ```
 
-Or build and install from the command line. This builds a Release copy and replaces `/Applications/Docket.app`:
+### 3. Build and install
+
+Choose one way.
+
+**Install script (recommended).** From the `docket` folder:
 
 ```bash
 tools/install.sh
 ```
+
+The script generates the Xcode project, builds a Release copy, replaces `/Applications/Docket.app`, and opens it. It takes a minute or two the first time. When it prints `Installed /Applications/Docket.app`, you are done; continue with [Getting started](#getting-started).
+
+**Xcode (for working on Docket).**
+
+1. Generate the project and open it:
+
+   ```bash
+   xcodegen generate
+   open Docket.xcodeproj
+   ```
+
+2. In the Xcode toolbar, check that the scheme is **Docket** and the destination is **My Mac**.
+3. Choose **Product > Run** (Command-R). Xcode builds Docket and starts it; its icon appears in the menu bar and the main window opens.
+
+A copy run from Xcode lives in Xcode's build folder, not in Applications, and it takes over Launch at login until the installed copy runs again. Run `xcodegen generate` again whenever you pull changes that add files or edit `project.yml`.
+
+### 4. First launch
+
+1. Docket opens its main window and adds an icon to the menu bar. Sign in with a GitHub token (see [Getting started](#getting-started)).
+2. Allow notifications when macOS asks, so Docket can tell you when a PR needs you.
+3. The first time Docket starts Claude in Terminal or iTerm2, macOS asks whether Docket may control that app. Allow it; otherwise Docket copies the command to the clipboard for you to paste.
+4. Optional: turn on Launch at login in Docket's settings.
+
+### Updating
+
+```bash
+cd docket
+git pull
+tools/install.sh
+```
+
+### Uninstalling
+
+1. Quit Docket, then delete `/Applications/Docket.app`.
+2. To remove its data too: choose Sign out in Docket's settings first (this deletes the token from the Keychain), then delete `~/Library/Application Support/Docket`, `~/Library/Caches/Docket`, and the `Docket-*.caf` files in `~/Library/Sounds`, and run `defaults delete io.github.docket.Docket` (or your own bundle ID).
 
 ### Signing
 
