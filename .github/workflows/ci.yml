@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Test ReviewKit
+        run: swift test --package-path Packages/ReviewKit
+      - name: Build app
+        run: |
+          xcodegen generate
+          xcodebuild -project Docket.xcodeproj -scheme Docket -destination 'platform=macOS' build
