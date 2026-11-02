@@ -16,7 +16,7 @@ Technical design for Docket v1. Requirements are in the [PRD](PRD.md).
 | Launch at login | `ServiceManagement` `SMAppService.mainApp` | Current system API; appears under System Settings, General, Login Items |
 | Global shortcut | A small Carbon `RegisterEventHotKey` wrapper with a fixed list of shortcut choices (chosen 2026-10-13) | SwiftUI has no global hotkey API; avoids the only planned dependency |
 | Process launching | `Foundation.Process` for `git` and `gh`; `NSWorkspace` and Apple Events for terminal and editor apps | See [Local workspace integration](local-workspace-integration.md) |
-| Dependencies | None. Swift Package Manager only if one is ever added. | Less to audit and update |
+| Dependencies | Sparkle, for self-update in release builds (added 2026-11-02; see [design note](design/self-update.md)). Swift Package Manager, pinned to an exact version. | Less to audit and update; Sparkle is the standard Mac updater and safer than writing our own install path |
 | Distribution | Local Xcode signing with Apple Development identity, Hardened Runtime on, App Sandbox off | See section 7 |
 
 ## 2. Component overview

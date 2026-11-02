@@ -13,6 +13,7 @@ It answers one question: whose move is it, and on which PR?
 - **Claude Code sessions.** One click starts Claude Code on a PR with a prompt chosen by its state: review it, address feedback, fix failing CI, or resolve conflicts. Sessions open in a terminal (Terminal, iTerm2, or a custom command) or in the Claude desktop app.
 - **Safer reviews of others' PRs.** Terminal review sessions cannot edit files, pin the permission mode, and post a review only after you confirm. For other people's PRs, Claude starts without the checkout's `.claude` settings, hooks, and `.mcp.json` servers.
 - **Optional review actions.** Request, re-request, or dismiss reviews from Docket. Off by default.
+- **Updates.** Release builds update themselves from GitHub Releases with Check for Updates….
 
 ## Requirements
 
@@ -30,7 +31,7 @@ Signed and notarized releases for Apple silicon Macs are published on the [Relea
 2. Open it and drag Docket to the Applications folder.
 3. Eject the disk image, then open Docket from Applications and continue with [First launch](#4-first-launch).
 
-To update, download the new DMG and replace the app in Applications the same way. On an Intel Mac, build from source.
+To update, choose **Docket > Check for Updates…** (also in Settings > General). Docket downloads the new release, checks its signatures, replaces itself, and relaunches. On the second launch it asks once whether to check automatically each day. On an Intel Mac, build from source.
 
 ### Switching from a source build
 
@@ -177,7 +178,7 @@ See [Local workspace and Claude Code integration](docs/local-workspace-integrati
 ## Privacy and security
 
 - The GitHub token lives only in the login Keychain. It is never written to files, settings, or logs.
-- Docket talks only to `api.github.com`. There is no telemetry, crash reporting, or update server.
+- Docket talks to `api.github.com` for your PRs. Release builds also check GitHub Releases for updates when you ask, or daily if you opt in, without sending your token. There is no telemetry or crash reporting.
 - Docket is read-only against GitHub unless you turn on review actions.
 - Processes run with argument arrays; the terminal launch command is the only shell string, and every value in it is validated or single-quoted.
 

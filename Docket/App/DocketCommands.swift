@@ -1,12 +1,19 @@
 import ReviewCore
 import SwiftUI
 
-/// View and Go menu commands for the main window.
+/// App, View, and Go menu commands for the main window.
 struct DocketCommands: Commands {
     let app: AppState
+    let updater: Updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            if updater.isAvailable {
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheckForUpdates)
+            }
+        }
         CommandGroup(before: .sidebar) {
             Button("as List") { app.presentation = .list }
                 .keyboardShortcut("1", modifiers: [.control, .command])

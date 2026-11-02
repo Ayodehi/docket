@@ -26,5 +26,9 @@
 	<false/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Docket opens your terminal at a repository and starts commands such as Claude Code.</string>
+	<key>SUFeedURL</key>
+	<string>$(DOCKET_UPDATE_FEED_URL)</string>
+	<key>SUPublicEDKey</key>
+	<string>$(SPARKLE_PUBLIC_KEY)</string>
 </dict>
 </plist>
