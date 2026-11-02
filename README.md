@@ -32,6 +32,24 @@ Signed and notarized releases for Apple silicon Macs are published on the [Relea
 
 To update, download the new DMG and replace the app in Applications the same way. On an Intel Mac, build from source.
 
+### Switching from a source build
+
+Releases use the bundle ID `io.github.docket.Docket`. Quit Docket before you replace it. PR history, snoozes, and notification history are kept in `~/Library/Application Support/Docket`, which every copy shares. Settings and the GitHub token are stored under the bundle ID, so what carries over depends on how you built it:
+
+- **Built with the default signing settings:** the bundle ID is the same, so everything carries over. The release has a different signature, so on first launch macOS asks whether Docket may use its Keychain item; choose Always Allow.
+- **Built with your own bundle ID prefix** (in `Config/Local.xcconfig`): the release is a separate app to macOS.
+  1. With Docket quit, copy your settings, replacing `com.example` with your prefix:
+
+     ```bash
+     defaults export com.example.Docket - | defaults import io.github.docket.Docket -
+     defaults delete io.github.docket.Docket launchAtLoginPath
+     ```
+
+     The second command lets the release register itself for Launch at login. It prints an error if Launch at login was never on; that is fine.
+  2. Replace the app in Applications with the release and open it.
+  3. Sign in again: paste a token or import the GitHub CLI's.
+  4. If System Settings > General > Login Items shows a second Docket entry, remove the one that no longer works. The old token stays in your Keychain under your old bundle ID until you delete it.
+
 ## Build and install
 
 These steps build Docket from source and take you from nothing to Docket running in your menu bar.
