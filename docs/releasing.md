@@ -75,9 +75,8 @@ To upgrade Sparkle, read its release notes, change `exactVersion` in `project.ym
 
 ## Release checklist
 
-1. Complete a security review of the changes since the last release against [Security and privacy](security-and-privacy.md). Do not publish a release before it passes.
-2. Merge a pull request that bumps `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`.
-3. On an up-to-date, clean `main`, build, notarize, and create a draft release:
+1. Merge a pull request that bumps `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`.
+2. On an up-to-date, clean `main`, build, notarize, and create a draft release:
 
    ```bash
    tools/release.sh --publish
@@ -86,5 +85,5 @@ To upgrade Sparkle, read its release notes, change `exactVersion` in `project.ym
    The script signs the app and Sparkle's helpers with the hardened runtime and a secure timestamp, notarizes and staples the app, packages it into `dist/Docket-<version>.dmg`, signs, notarizes, and staples the DMG, and checks it with `spctl`. It then writes `dist/appcast.xml` with the DMG's EdDSA signature and creates a draft GitHub Release `v<version>` targeting the current commit, with the DMG, its SHA-256 checksum, and the feed attached and notes generated from merged pull requests. It refuses to run with uncommitted changes or if the tag or release already exists. Notarization usually takes a few minutes.
 
    Without `--publish`, the script stops after writing the DMG and feed.
-4. Download the DMG from the draft on another Mac if you can, open it, drag Docket to Applications, and launch it.
-5. Edit the draft's notes so they describe user-visible changes only, then publish it on GitHub or with `gh release edit v<version> --draft=false`. Publishing creates the tag and makes it the latest release, so installed copies offer it the next time they check.
+3. Download the DMG from the draft on another Mac if you can, open it, drag Docket to Applications, and launch it.
+4. Edit the draft's notes so they describe user-visible changes only, then publish it on GitHub or with `gh release edit v<version> --draft=false`. Publishing creates the tag and makes it the latest release, so installed copies offer it the next time they check.

@@ -56,10 +56,8 @@ Untrusted PR content is a real concern: anyone who can open a PR against a watch
 
 ## 7. Distributing builds
 
-Docket is built from source and signed locally. Before distributing prebuilt binaries:
+Prebuilt releases are signed with a Developer ID certificate and notarized by `tools/release.sh`; see [Releasing](releasing.md). Source builds are signed locally.
 
-- Sign with a Developer ID certificate and notarize. `tools/release.sh` does this; see [Releasing](releasing.md).
-- Review the token handling and process execution rules in this document against the release, since the app handles tokens with access to private repositories and launches local processes.
 - Consider moving to OAuth device flow with an organization-approved OAuth App so tokens are scoped and revocable centrally.
 
 ## 8. Threat summary
