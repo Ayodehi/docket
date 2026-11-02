@@ -168,6 +168,35 @@ extension PRBuilder: @unchecked Sendable {}
         #expect(derive(builder, ignored: [""]).ci == .failing)
     }
 
+    @Test func onlyTheLatestRunOfEachCheckCounts() {
+        func run(_ name: String, _ conclusion: String, started hours: Double, workflow: String? = "pr-checks") -> CheckContext {
+            CheckContext(typename: "CheckRun", name: name, status: "COMPLETED", conclusion: conclusion, detailsUrl: nil,
+                         startedAt: at(hours), completedAt: nil, context: nil, state: nil, targetUrl: nil, createdAt: nil,
+                         checkSuite: workflow.map { .init(workflowRun: .init(workflow: .init(name: $0))) })
+        }
+        // GitHub's rollup still says FAILURE after a rerun passes.
+        let rerun = derive(mine {
+            $0.rollup = "FAILURE"
+            $0.contexts = [run("ticket-link / validate", "FAILURE", started: -3), run("build", "SUCCESS", started: -3),
+                           run("ticket-link / validate", "FAILURE", started: -2.9), run("ticket-link / validate", "SUCCESS", started: -2)]
+        })
+        #expect(rerun.ci == .passing)
+        #expect(rerun.checks.map(\.name) == ["build", "ticket-link / validate"])
+        // The same job name in two workflows is two checks.
+        let twoWorkflows = derive(mine {
+            $0.rollup = "FAILURE"
+            $0.contexts = [run("build", "FAILURE", started: -3, workflow: "release"), run("build", "SUCCESS", started: -2)]
+        })
+        #expect(twoWorkflows.ci == .failing)
+        #expect(twoWorkflows.checks.count == 2)
+        // A full page may be missing checks, so the rollup decides.
+        let fullPage = derive(mine {
+            $0.rollup = "FAILURE"
+            $0.contexts = (0..<CheckContext.fetchLimit).map { run("job \($0)", "SUCCESS", started: -2) }
+        })
+        #expect(fullPage.ci == .failing)
+    }
+
     @Test func checkLinksAreLimitedToWebURLs() {
         #expect(StatusDeriver.webURL("https://ci.example.com/run/1")?.host() == "ci.example.com")
         #expect(StatusDeriver.webURL("http://ci.example.com/run/1") != nil)

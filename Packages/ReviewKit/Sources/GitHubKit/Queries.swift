@@ -35,7 +35,7 @@ enum Queries {
       latestReviews(first: 20) { nodes { id author { login ... on User { id } } state submittedAt } }
       comments(last: 20) { nodes { author { login } createdAt } }
       reviewThreads(first: 100) { totalCount nodes { isResolved comments(last: 1) { nodes { author { login } createdAt } } } }
-      commits(last: 1) { nodes { commit { oid committedDate statusCheckRollup { state contexts(first: 50) { nodes { __typename ... on CheckRun { name status conclusion detailsUrl startedAt completedAt } ... on StatusContext { context state targetUrl createdAt } } } } } } }
+      commits(last: 1) { nodes { commit { oid committedDate statusCheckRollup { state contexts(first: \(CheckContext.fetchLimit)) { nodes { __typename ... on CheckRun { name status conclusion detailsUrl startedAt completedAt checkSuite { workflowRun { workflow { name } } } } ... on StatusContext { context state targetUrl createdAt } } } } } } }
     }
     """
 

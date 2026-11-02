@@ -43,9 +43,11 @@ Computed per PR; a PR can have more than one role, and the highest one wins for 
 | Running | rollup `PENDING` or `EXPECTED` |
 | None | no rollup (no checks configured) |
 
+CI status is computed from the individual checks (any failing, else any running, else any passing, else none), keeping only the newest run of each check run per workflow and name. The rollup counts every run on the head commit, so a check that failed and then passed on a rerun leaves it at `FAILURE`, while GitHub's web UI shows the latest run. The rollup states above apply when there are no individual checks or when the detail query returned a full page of them (some may be missing). Changed 2026-11-02.
+
 Required versus optional checks: v1 uses the rollup. A later version can mark which failing checks are required by branch protection.
 
-Ignored checks: Settings > Inbox holds check name patterns (case-insensitive substring). When the list is not empty, CI status is computed from the remaining checks (any failing, else any running, else any passing, else none) instead of the rollup. Ignored checks still appear, dimmed, in PR details. Added 2026-10-13 after one broken staging check marked 64 PRs as failing.
+Ignored checks: Settings > Inbox holds check name patterns (case-insensitive substring). When the list is not empty, CI status is always computed from the remaining checks, even when the page of checks is full. Ignored checks still appear, dimmed, in PR details. Added 2026-10-13 after one broken staging check marked 64 PRs as failing.
 
 Check links (`detailsUrl`, `targetUrl`) are set by CI providers and by anyone who can post commit statuses. Only `http` and `https` links are kept; other schemes are dropped so a click cannot launch a local file or app.
 

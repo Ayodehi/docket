@@ -57,7 +57,7 @@ public enum StatusDeriver {
         if watched && roles.isEmpty { roles.insert(.watcher) }
 
         let checks = checks(pr, ignoring: context.ignoredChecks)
-        let ci = context.ignoredChecks.isEmpty ? ciStatus(pr.ciRollup) : ciStatus(checks.filter { !$0.isIgnored })
+        let ci = ciStatus(pr, checks: checks, ignoring: context.ignoredChecks)
         let review = reviewStatus(pr)
         let merge = mergeReadiness(pr)
         let lastViewed = context.lastViewed[pr.id] ?? previous?.stateEnteredAt ?? pr.updatedAt
@@ -150,6 +150,16 @@ public enum StatusDeriver {
         )
     }
 
+    /// The rollup counts every run on the head commit, so a check that failed and then passed on a
+    /// rerun keeps it failing. GitHub's web UI shows only the latest run, so CI status comes from the
+    /// deduplicated checks. The rollup is used when there are no checks (older caches) or the page
+    /// of checks may be cut off, unless checks are ignored.
+    static func ciStatus(_ pr: PullRequest, checks: [CheckSummary], ignoring patterns: [String]) -> CIStatus {
+        let contexts = pr.commits.nodes.first?.commit.statusCheckRollup?.contexts?.nodes ?? []
+        if patterns.isEmpty && (contexts.isEmpty || contexts.count >= CheckContext.fetchLimit) { return ciStatus(pr.ciRollup) }
+        return ciStatus(checks.filter { !$0.isIgnored })
+    }
+
     static func ciStatus(_ rollup: String?) -> CIStatus {
         switch rollup {
         case "SUCCESS": .passing
@@ -228,7 +238,7 @@ public enum StatusDeriver {
     }
 
     static func checks(_ pr: PullRequest, ignoring patterns: [String] = []) -> [CheckSummary] {
-        let contexts = pr.commits.nodes.first?.commit.statusCheckRollup?.contexts?.nodes ?? []
+        let contexts = latestRuns(pr.commits.nodes.first?.commit.statusCheckRollup?.contexts?.nodes ?? [])
         let lowered = patterns.map { $0.lowercased() }.filter { !$0.isEmpty }
         return contexts.map { context -> CheckSummary in
             if context.typename == "StatusContext" {
@@ -261,6 +271,19 @@ public enum StatusDeriver {
             return check
         }
         .sorted { ($0.isIgnored ? 1 : 0, $0.state.sortRank, $0.name) < ($1.isIgnored ? 1 : 0, $1.state.sortRank, $1.name) }
+    }
+
+    /// The newest run of each check, keyed by workflow and name. Reruns and repeated `pull_request`
+    /// events leave older runs on the commit. Commit statuses already hold only the latest state.
+    static func latestRuns(_ contexts: [CheckContext]) -> [CheckContext] {
+        var newest: [String: Int] = [:]
+        for (index, context) in contexts.enumerated() where context.typename == "CheckRun" {
+            let key = "\(context.workflowName ?? "")\u{1F}\(context.name ?? "")"
+            if let kept = newest[key], (contexts[kept].startedAt ?? .distantPast) > (context.startedAt ?? .distantPast) { continue }
+            newest[key] = index
+        }
+        let kept = Set(newest.values)
+        return contexts.enumerated().filter { $0.element.typename != "CheckRun" || kept.contains($0.offset) }.map(\.element)
     }
 
     /// Check links come from CI providers and anyone who can post commit statuses, so only
