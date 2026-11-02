@@ -57,7 +57,7 @@ Untrusted PR content is a real concern: anyone who can open a PR against a watch
 
 Docket is built from source and signed locally. Before distributing prebuilt binaries:
 
-- Sign with a Developer ID certificate and notarize.
+- Sign with a Developer ID certificate and notarize. `tools/release.sh` does this; see [Releasing](releasing.md).
 - Review the token handling and process execution rules in this document against the release, since the app handles tokens with access to private repositories and launches local processes.
 - Consider moving to OAuth device flow with an organization-approved OAuth App so tokens are scoped and revocable centrally.
 

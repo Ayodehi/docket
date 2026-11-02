@@ -10,6 +10,7 @@ Docket is a native macOS menu bar app that watches your GitHub pull requests, te
 | [PR status model and notification rules](status-model-and-notifications.md) | How GitHub data maps to states, which transitions notify, suppression and coalescing |
 | [Local workspace and Claude Code integration](local-workspace-integration.md) | Repo discovery, checkout and worktrees, terminal and editor launching, Claude prompt templates |
 | [Security and privacy](security-and-privacy.md) | Token handling, process execution rules, data handling, what distributing builds would require |
+| [Releasing](releasing.md) | Versioning, signing and notarization setup, and the release checklist |
 | [Roadmap and milestones](roadmap.md) | M0 to M6 for v1, then v1.1 and later candidates |
 | [UX options](ux-options.md) | Layout options, the recorded decision, and how the List, Board, Table, and Compact view modes work |
 | [Design note: review actions](design/review-actions.md) | Request, re-request, and dismiss reviews from Docket (opt-in, off by default) |
