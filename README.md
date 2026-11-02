@@ -22,9 +22,19 @@ It answers one question: whose move is it, and on which PR?
 - `git`.
 - Optional: [GitHub CLI](https://cli.github.com) (`gh`), to import its token and for Claude to read PRs; the [Claude Code CLI](https://docs.claude.com/en/docs/claude-code/overview) or the Claude desktop app, for sessions.
 
+## Download
+
+Signed and notarized releases for Apple silicon Macs are published on the [Releases](https://github.com/Ayodehi/docket/releases) page when available.
+
+1. Download `Docket-<version>.dmg` from the latest release.
+2. Open it and drag Docket to the Applications folder.
+3. Eject the disk image, then open Docket from Applications and continue with [First launch](#4-first-launch).
+
+To update, download the new DMG and replace the app in Applications the same way. On an Intel Mac, build from source.
+
 ## Build and install
 
-Docket is built from source. These steps take you from nothing to Docket running in your menu bar.
+These steps build Docket from source and take you from nothing to Docket running in your menu bar.
 
 ### 1. Install the tools
 
@@ -173,7 +183,7 @@ Replace the subsystem if you set your own bundle ID prefix.
 | `Packages/ReviewKit/` | Core logic as a Swift package, testable without UI: `GitHubKit`, `ReviewCore`, `Sync`, `Workspace`, `Persistence` |
 | `Config/` | Signing settings |
 | `docs/` | Design spec: PRD, architecture, GitHub integration, status model, workspace integration, and security |
-| `tools/` | `install.sh` and the app icon generator |
+| `tools/` | `install.sh`, `release.sh` (see [Releasing](docs/releasing.md)), and the app icon generator |
 
 `project.yml` is the source of truth for the Xcode project; `Docket.xcodeproj` is generated and not committed.
 
