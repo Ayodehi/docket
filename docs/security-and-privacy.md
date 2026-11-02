@@ -25,7 +25,8 @@ Sensitive data should never be in PRs to begin with. The app does not copy PR te
 
 ## 3. Network
 
-- HTTPS to `api.github.com` only. No other hosts, no telemetry, no crash reporting service, no auto-update server in v1.
+- HTTPS to `api.github.com` for everything Docket shows. No telemetry and no crash reporting service.
+- Release builds also fetch the update feed and DMG from GitHub Releases (`github.com`), anonymously and without the token: when you choose Check for Updates…, and daily only if you opt in. Source builds never do. See [Design note: self-update](design/self-update.md) (added 2026-11-02).
 - No inbound sockets or local servers.
 - Avatars, if shown, load from `avatars.githubusercontent.com`; this can be disabled.
 

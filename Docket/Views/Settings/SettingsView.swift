@@ -71,10 +71,12 @@ private struct AccountSettingsView: View {
 
 private struct GeneralSettingsView: View {
     @Environment(AppState.self) private var app
+    @Environment(Updater.self) private var updater
     private let intervals: [TimeInterval] = [30, 60, 120, 300, 600, 900]
 
     var body: some View {
         @Bindable var app = app
+        @Bindable var updater = updater
         Form {
             Toggle("Launch at login", isOn: Binding(get: { app.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
             Toggle("Hide the Dock icon when the main window is closed", isOn: $app.viewSettings.hideDockIconWhenClosed)
@@ -85,6 +87,15 @@ private struct GeneralSettingsView: View {
             Picker("Check for changes every", selection: $app.pollInterval) {
                 ForEach(intervals, id: \.self) { seconds in
                     Text(seconds < 60 ? "\(Int(seconds)) seconds" : "\(Int(seconds / 60)) minute\(seconds == 60 ? "" : "s")").tag(seconds)
+                }
+            }
+            if updater.isAvailable {
+                Section("Updates") {
+                    Toggle("Check for updates automatically", isOn: $updater.automaticallyChecksForUpdates)
+                    LabeledContent("Docket \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")") {
+                        Button("Check Now") { updater.checkForUpdates() }
+                            .disabled(!updater.canCheckForUpdates)
+                    }
                 }
             }
             Section("Sync") {
