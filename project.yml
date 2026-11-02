@@ -53,8 +53,8 @@ targets:
     settings:
       base:
         # Release version: bump MARKETING_VERSION for each release and CURRENT_PROJECT_VERSION for every build you ship.
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "2"
         # Empty except in builds made by tools/release.sh, so source builds never start the updater.
         DOCKET_UPDATE_FEED_URL: ""
         # Public half of the EdDSA key that signs updates; the private half is only in the release Mac's Keychain.
