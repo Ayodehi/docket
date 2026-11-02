@@ -82,7 +82,7 @@ Every open PR gets exactly one primary state. Evaluate top to bottom; the first 
 | 4 | CI failing | Mine, CI Failing, not draft | Me | Yes | High |
 | 5 | Conflicts | Mine, merge readiness Conflicts | Me | Yes | Medium |
 | 6 | Ready to merge | Mine, Approved, CI Passing or None, merge readiness Ready | Me | Yes | Medium |
-| 7 | New comments | Mine, new review comments or a Commented review since I last opened the PR in the app | Me | Yes | Medium |
+| 7 | New comments | Mine, and either new review comments or a Commented review since I last opened the PR in the app, or someone else's Commented or Changes requested review, conversation comment, or unresolved thread reply came after my last push and my last reply (review, conversation comment, or thread reply). The second part stays until I push or reply; ignored bots (Settings > Notifications) do not count. (Widened 2026-11-02 so a follow-up conversation comment is not lost behind Waiting for review.) | Me | Yes | Medium |
 | 8 | Behind base | Mine, merge readiness Behind base, otherwise approved | Me | Yes | Low |
 | 9 | Draft | Mine, draft | Me (when ready) | No | None |
 | 10 | Waiting for review | Mine, Review required, CI Passing or Running | Others | No | None |

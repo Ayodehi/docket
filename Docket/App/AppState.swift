@@ -116,7 +116,14 @@ final class AppState {
     var snoozes: [String: Snooze] = [:]
     var snoozed: Set<String> { Set(snoozes.keys) }
     var notificationSettings: NotificationSettings {
-        didSet { settingsStore.set(notificationSettings, forKey: "notificationSettings") }
+        didSet {
+            settingsStore.set(notificationSettings, forKey: "notificationSettings")
+            // Ignored bots also decide which comments wait on my reply.
+            if notificationSettings.ignoredBots != oldValue.ignoredBots {
+                rederive()
+                rebaseline()
+            }
+        }
     }
     var notificationStatus: UNAuthorizationStatus = .notDetermined
     var notificationSoundsAllowed = true
@@ -522,7 +529,8 @@ final class AppState {
             if hiddenRepos.contains(pr.repository.nameWithOwner) { continue }
             // First sighting sets the "new comments" baseline, so old comments do not flood the Inbox.
             if lastViewed[pr.id] == nil { lastViewed[pr.id] = now }
-            let context = DerivationContext(viewer: viewer, teams: syncState.teams, lastViewed: lastViewed, ignoredChecks: ignoredChecks, now: now)
+            let context = DerivationContext(viewer: viewer, teams: syncState.teams, lastViewed: lastViewed, ignoredChecks: ignoredChecks,
+                                            ignoredAuthors: Set(notificationSettings.ignoredBots), now: now)
             derived.append(StatusDeriver.snapshot(for: pr, context: context, foundByRequestSearch: record.sources.contains(.requested),
                                                   watched: record.sources.contains(.watched), previous: previous[pr.id]))
         }
