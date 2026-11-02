@@ -45,7 +45,9 @@ if [ "$mode" = release ]; then
   # Fail now rather than after the build if the notary profile is missing.
   xcrun notarytool history --keychain-profile "$notary_profile" >/dev/null ||
     { echo "Notary profile \"$notary_profile\" not found. See docs/releasing.md." >&2; exit 1; }
-  sign_settings=(CODE_SIGN_STYLE=Manual "CODE_SIGN_IDENTITY=$identity" "OTHER_CODE_SIGN_FLAGS=--timestamp")
+  # Xcode otherwise adds the debugging entitlement get-task-allow, which notarization rejects.
+  sign_settings=(CODE_SIGN_STYLE=Manual "CODE_SIGN_IDENTITY=$identity" "OTHER_CODE_SIGN_FLAGS=--timestamp"
+    CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO)
 else
   sign_settings=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=)
 fi
@@ -61,6 +63,10 @@ xcodebuild -project Docket.xcodeproj -scheme Docket -configuration Release -dest
 app=".build/Dist/Build/Products/Release/Docket.app"
 [ -d "$app" ] || { echo "Build failed: $app not found" >&2; exit 1; }
 codesign --verify --strict --deep "$app"
+if codesign -d --entitlements - "$app" 2>/dev/null | grep -q get-task-allow && [ "$mode" = release ]; then
+  echo "The app has the get-task-allow entitlement, which notarization rejects." >&2
+  exit 1
+fi
 [ "$(lipo -archs "$app/Contents/MacOS/Docket")" = arm64 ] || { echo "Expected an arm64-only binary." >&2; exit 1; }
 
 plist="$app/Contents/Info.plist"
@@ -68,8 +74,17 @@ version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$plist
 build="$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$plist")"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Unexpected version \"$version\" in $plist" >&2; exit 1; }
 
+# notarytool exits 0 even when Apple rejects a submission, so check the status it reports.
 notarize() {
-  xcrun notarytool submit "$1" --keychain-profile "$notary_profile" --wait --timeout 30m
+  local result id status
+  result="$(xcrun notarytool submit "$1" --keychain-profile "$notary_profile" --wait --timeout 30m --output-format json)"
+  id="$(/usr/bin/plutil -extract id raw -o - - <<<"$result")"
+  status="$(/usr/bin/plutil -extract status raw -o - - <<<"$result")"
+  echo "Notarization of $(basename "$1"): $status"
+  if [ "$status" != Accepted ]; then
+    xcrun notarytool log "$id" --keychain-profile "$notary_profile" >&2 || true
+    exit 1
+  fi
 }
 
 if [ "$mode" = release ]; then
