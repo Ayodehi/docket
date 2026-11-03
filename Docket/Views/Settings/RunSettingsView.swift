@@ -16,7 +16,7 @@ struct RunSettingsView: View {
                     Text("Choose a repo").tag("")
                     ForEach(repoChoices, id: \.self) { name in
                         let count = app.runSettings(for: name).profiles.count
-                        Text(count == 0 ? name : "\(name) (\(count))").tag(name)
+                        Text(count == 0 ? name : "\(name) (\(count) \(count == 1 ? "profile" : "profiles"))").tag(name)
                     }
                 }
             } footer: {
