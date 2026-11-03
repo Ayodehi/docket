@@ -4,21 +4,35 @@ import Sync
 import Workspace
 
 struct SettingsView: View {
+    @Environment(AppState.self) private var app
+    @State private var tab = "account"
+
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             AccountSettingsView()
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
+                .tag("account")
             InboxSettingsView()
                 .tabItem { Label("Inbox", systemImage: "tray") }
+                .tag("inbox")
             NotificationSettingsView()
                 .tabItem { Label("Notifications", systemImage: "bell") }
+                .tag("notifications")
             WorkspaceSettingsView()
                 .tabItem { Label("Workspace", systemImage: "folder") }
+                .tag("workspace")
             ClaudeSettingsView()
                 .tabItem { Label("Claude", systemImage: "sparkles") }
+                .tag("claude")
+            RunSettingsView()
+                .tabItem { Label("Run", systemImage: "play.circle") }
+                .tag("run")
             GeneralSettingsView()
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag("general")
         }
+        .onAppear { if app.runSettingsRepo != nil { tab = "run" } }
+        .onChange(of: app.runSettingsRepo) { if app.runSettingsRepo != nil { tab = "run" } }
     }
 }
 

@@ -184,7 +184,42 @@ Whether the app sends the prompt at once or only fills it in for the user to sen
 | Zed | `open -a Zed <path>` |
 | Custom | Command template with `{path}` |
 
-All launches use `Process` with an argument array (no shell) except the terminal command string, which is constructed as described above.
+All launches use `Process` with an argument array (no shell) except the terminal command strings: the Claude command described above and the run profile command in section 3.5.
+
+### 3.5 Run profiles (added 2026-11-03)
+
+A run profile starts a PR's checkout locally with a command the user configured for its repository, for example a DevSpace dev session with a particular env file. Profiles are generic: DevSpace is the first preset, and anything that runs from a folder (`docker compose up`, `make dev`, `pnpm dev`) fits the same fields.
+
+**Settings > Run** keeps a list of profiles per `owner/name`, stored with the other workspace settings. One profile is the default for the Run button. Each profile has:
+
+| Field | Meaning |
+|---|---|
+| Name, kind | Label only. Kind records which preset made it (DevSpace or Custom). |
+| Folder | Relative to the checkout, for example `deploy`. Empty means the root. No `..`; with symlinks resolved it must stay inside the checkout. |
+| Command | A shell fragment the user writes, for example `devspace dev`. It can chain setup steps such as selecting a kube context. |
+| Stop command | Optional, for example `devspace purge`. Shown as Stop. |
+| Env file | An absolute path on this Mac, outside every checkout. |
+| Delivery | **Variable**: export a variable set to the file's path (DevSpace reads `DEVSPACE_ENV_FILE`), so nothing is written into the checkout. **Copy**: copy the file to a path relative to the run folder, for tools that only read a fixed name such as `.env`. |
+| Variables | `NAME=value` pairs. Values are literal text, single-quoted as a whole. |
+
+Placeholders in the command and variable values: `{path}` (checkout root), `{number}`, `{repo}`, and `{branch}`. `{branch}` is available only for a same-repository PR whose branch passes the branch-name rules; a fork PR's branch is never used, and the run fails with a message instead. In the command, each substituted value is single-quoted. No PR title, body, comment, or label is ever available.
+
+**Detect** looks for `devspace.yaml` or `devspace.yml` at the clone root and one level down (skipping hidden folders, `node_modules`, `vendor`, `build`, and `dist`) and adds a DevSpace profile for each folder found: `devspace dev`, stop `devspace purge`, env file through `DEVSPACE_ENV_FILE`. It checks file names only and runs nothing.
+
+**Run** (detail pane next to Worktree, and the row menu) resolves the folder exactly as the Claude action does (section 3.1), then sends one line to the terminal:
+
+```
+cd '<checkout>/<folder>' && export DEVSPACE_ENV_FILE='/Users/me/env/web-console.env' && export LOG_LEVEL='debug' && devspace dev
+```
+
+- Docket-supplied values are single-quoted; the command fragment is the user's own setting and goes in as written.
+- The line must stay under the terminal's 1024-byte limit; a longer one is refused with a message to move variables into the env file.
+- For another person's PR, Docket asks first ("Run <author>'s code?"), once per head commit per app session, before Run or Stop. Both read the checkout's build files and configuration.
+- Copy delivery checks `git check-ignore` for the destination and refuses one git would track. An existing file with the same contents is kept; one with different contents is never replaced. The copy is mode 0600.
+
+**Stop** runs the stop command, with the same folder and environment, in the PR's review worktree or else the main clone. It never creates a worktree or switches branches. Docket does not track whether a run is still going: closing the terminal or pressing Control-C ends the foreground process, and the stop command cleans up anything it left deployed.
+
+Tools that allow only one running stack per machine or cluster (a local Kubernetes cluster, fixed ports) need the previous run stopped first. Stop the other checkout, then Run the PR.
 
 ## 4. Tool detection
 

@@ -24,7 +24,7 @@ swift test --package-path Packages/ReviewKit
 
 - The GitHub token lives only in the Keychain. Never write it to UserDefaults, files, logs, fixtures, or chat.
 - Test fixtures and docs use fictional data only (example-org, web-console). This repository is public: no real organization, repository, or person names, internal links, or credentials.
-- Run processes with `Process` and an argument array. The only shell string is the terminal launch command built in `Workspace`.
+- Run processes with `Process` and an argument array. The only shell strings are the terminal launch commands built in `Workspace` (Claude and run profiles).
 - Never put PR titles, bodies, comments, labels, or fork branch names into commands or Claude prompts. Validate branch names and single-quote paths.
 - Never stash, reset, force-push, delete branches, or remove worktrees with `--force` automatically.
 - Read-only against GitHub except the opt-in review actions in `docs/design/review-actions.md` (request, re-request, dismiss; off by default). Add no other writes or scopes without a design note in `docs/design/`.

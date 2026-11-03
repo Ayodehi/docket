@@ -110,6 +110,7 @@ struct PRDetailView: View {
             .help("Starts Claude Code with the \(kind.title.lowercased()) prompt in this PR's worktree or clone. The menu picks the task and where Claude works, opens a session with no task, or uses the other Claude app.")
             Button { app.makeWorktree(pr) } label: { Label("Worktree", systemImage: "arrow.triangle.branch") }
                 .help("Create or update a review worktree for this PR")
+            RunMenu(pr: pr)
             Menu {
                 Button("Conversation") { app.openOnGitHub(pr) }
                 Button("Checks") { app.openOnGitHub(pr, path: "checks") }
@@ -306,6 +307,7 @@ struct PanelRow<Content: View>: View {
 /// Local clone status and workspace actions.
 private struct LocalPanel: View {
     @Environment(AppState.self) private var app
+    @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     let pr: PRSnapshot
     @State private var info: LocalInfo?
@@ -352,6 +354,13 @@ private struct LocalPanel: View {
                         Button("Editor") { app.openEditor(pr) }
                         Button("Check Out") { app.checkOut(pr) }
                             .help("Switch the main clone to this PR. Refuses if it has uncommitted changes.")
+                        if app.runSettings(for: pr.repo).profiles.isEmpty {
+                            Button("Set Up Run…") {
+                                app.runSettingsRepo = pr.repo
+                                openSettings()
+                            }
+                            .help("Add a command that starts this repo's checkout, such as devspace dev")
+                        }
                         Spacer()
                         Button("Worktrees…") { openWindow(id: "worktrees") }
                             .help("Every worktree of your clones, with cleanup")
@@ -431,6 +440,45 @@ private struct StackPanel: View {
                         .foregroundStyle(Tone.warn.text)
                 }
             }
+        }
+    }
+}
+
+/// Starts or stops the repo's run profiles. Hidden until the repo has one.
+struct RunMenu: View {
+    @Environment(AppState.self) private var app
+    @Environment(\.openSettings) private var openSettings
+    let pr: PRSnapshot
+
+    var body: some View {
+        let settings = app.runSettings(for: pr.repo)
+        if let primary = settings.defaultProfile {
+            Menu {
+                Section("Run") {
+                    ForEach(settings.profiles) { profile in
+                        Button(profile.name) { app.startRun(pr, profile: profile) }
+                    }
+                }
+                let stoppable = settings.profiles.filter(\.hasStop)
+                if !stoppable.isEmpty {
+                    Section("Stop") {
+                        ForEach(stoppable) { profile in
+                            Button("Stop \(profile.name)") { app.stopRun(pr, profile: profile) }
+                        }
+                    }
+                }
+                Divider()
+                Button("Edit Run Profiles…") {
+                    app.runSettingsRepo = pr.repo
+                    openSettings()
+                }
+            } label: {
+                Label("Run", systemImage: "play")
+            } primaryAction: {
+                app.startRun(pr, profile: primary)
+            }
+            .fixedSize()
+            .help("Runs \"\(primary.name)\" in a terminal, in this PR's worktree or clone. The menu picks another profile or runs a stop command.")
         }
     }
 }

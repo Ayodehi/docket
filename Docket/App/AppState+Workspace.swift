@@ -25,6 +25,7 @@ struct WorkspaceSettings: Codable, Equatable {
         isolateOthersPRs = try c.decodeIfPresent(Bool.self, forKey: .isolateOthersPRs) ?? d.isolateOthersPRs
         claudeApp = try c.decodeIfPresent(ClaudeApp.self, forKey: .claudeApp) ?? d.claudeApp
         templates = try c.decodeIfPresent([PromptKind: String].self, forKey: .templates) ?? d.templates
+        runProfiles = try c.decodeIfPresent([String: RepoRunSettings].self, forKey: .runProfiles) ?? d.runProfiles
     }
 
     enum NotCheckedOut: String, Codable, CaseIterable {
@@ -54,6 +55,8 @@ struct WorkspaceSettings: Codable, Equatable {
     /// Where the Claude button starts Claude; the button's menu can pick the other one per launch.
     var claudeApp: ClaudeApp = .terminal
     var templates: [PromptKind: String] = [:]
+    /// `owner/name` to that repo's run profiles (Settings > Run).
+    var runProfiles: [String: RepoRunSettings] = [:]
 
     func template(_ kind: PromptKind) -> String { templates[kind] ?? kind.defaultTemplate }
 
@@ -246,38 +249,44 @@ extension AppState {
             return show(title: "Claude Code not found",
                         message: "Docket could not find the claude command. Install Claude Code, or set its location in Settings > Workspace.")
         }
+        withWorkFolder(pr, location: location, question: "Where should Claude work?") { self.launchClaude(pr, task: task, folder: $0, in: target) }
+    }
+
+    /// Finds or makes the folder to work on `pr` in, then calls `run` with it. `automatic` reuses the
+    /// PR's review worktree, then the main clone if it is on the PR branch, then follows the setting.
+    func withWorkFolder(_ pr: PRSnapshot, location: WorkLocation, question: String, then run: @escaping @MainActor (String) -> Void) {
         guard let clone = clone(for: pr.repo) else { return showNoClone(pr) }
         Task {
             switch location {
             case .worktree:
-                return makeWorktree(pr) { self.launchClaude(pr, task: task, folder: $0, in: target) }
+                return makeWorktree(pr, then: run)
             case .mainClone:
-                if await isOnPRBranch(clone, pr) { return launchClaude(pr, task: task, folder: clone.path, in: target) }
-                return checkOutThenLaunch(pr, task: task, clone: clone, in: target)
+                if await isOnPRBranch(clone, pr) { return run(clone.path) }
+                return checkOutThen(pr, clone: clone, run: run)
             case .automatic:
                 break
             }
             // 1. An existing review worktree for this PR.
             if let worktree = recordedWorktree(for: pr) {
-                if let path = try? await ensureWorktree(pr) { return launchClaude(pr, task: task, folder: path, in: target) }
-                return launchClaude(pr, task: task, folder: worktree.path, in: target)
+                if let path = try? await ensureWorktree(pr) { return run(path) }
+                return run(worktree.path)
             }
             // 2. The main clone already on the PR branch.
-            if await isOnPRBranch(clone, pr) { return launchClaude(pr, task: task, folder: clone.path, in: target) }
+            if await isOnPRBranch(clone, pr) { return run(clone.path) }
             // 3. Otherwise follow the setting.
             switch workspaceSettings.notCheckedOut {
             case .worktree:
-                makeWorktree(pr) { self.launchClaude(pr, task: task, folder: $0, in: target) }
+                makeWorktree(pr, then: run)
             case .checkout:
-                checkOutThenLaunch(pr, task: task, clone: clone, in: target)
+                checkOutThen(pr, clone: clone, run: run)
             case .ask:
                 workspaceAlert = WorkspaceAlert(
                     title: "\(pr.repoName) #\(pr.number) is not checked out",
-                    message: "Where should Claude work?",
+                    message: question,
                     actions: [
-                        .init(title: "Use Worktree", role: nil) { self.makeWorktree(pr) { self.launchClaude(pr, task: task, folder: $0, in: target) } },
-                        .init(title: "Check Out in Main Clone", role: nil) { self.checkOutThenLaunch(pr, task: task, clone: clone, in: target) },
-                        .init(title: "Open on Current Branch", role: nil) { self.launchClaude(pr, task: task, folder: clone.path, in: target) },
+                        .init(title: "Use Worktree", role: nil) { self.makeWorktree(pr, then: run) },
+                        .init(title: "Check Out in Main Clone", role: nil) { self.checkOutThen(pr, clone: clone, run: run) },
+                        .init(title: "Open on Current Branch", role: nil) { run(clone.path) },
                         .init(title: "Cancel", role: .cancel) {},
                     ])
                 openMainRequest += 1
@@ -290,19 +299,19 @@ extension AppState {
         return state.branch == pr.headRef || state.branch == "pr/\(pr.number)"
     }
 
-    private func checkOutThenLaunch(_ pr: PRSnapshot, task: ClaudeTask, clone: LocalClone, in target: ClaudeApp) {
+    private func checkOutThen(_ pr: PRSnapshot, clone: LocalClone, run: @escaping @MainActor (String) -> Void) {
         guard let workspace = gitWorkspace else { return show(WorkspaceError.toolMissing(.git)) }
         Task {
             do {
                 try await workspace.checkout(number: pr.number, repo: pr.repo, clone: clone)
                 localInfoVersion += 1
-                launchClaude(pr, task: task, folder: clone.path, in: target)
+                run(clone.path)
             } catch let error as WorkspaceError {
                 if case .dirty = error {
                     workspaceAlert = WorkspaceAlert(
                         title: "Uncommitted changes",
                         message: "\(error.description) Docket does not switch branches over local changes. Use a separate worktree instead?",
-                        actions: [.init(title: "Use Worktree", role: nil) { self.makeWorktree(pr) { self.launchClaude(pr, task: task, folder: $0, in: target) } },
+                        actions: [.init(title: "Use Worktree", role: nil) { self.makeWorktree(pr, then: run) },
                                   .init(title: "Cancel", role: .cancel) {}])
                     openMainRequest += 1
                 } else {
@@ -436,7 +445,7 @@ extension AppState {
     }
 
     /// Picks the worktree mode: my own same-repo PRs get their branch (so I can push); others are detached.
-    private func ensureWorktree(_ pr: PRSnapshot) async throws -> String {
+    func ensureWorktree(_ pr: PRSnapshot) async throws -> String {
         guard let clone = clone(for: pr.repo) else { throw WorkspaceError.failed("No local clone of \(pr.repo).") }
         guard let workspace = gitWorkspace else { throw WorkspaceError.toolMissing(.git) }
         let branch = pr.isMine && !pr.isCrossRepository && Safety.isSafeBranchName(pr.headRef) ? pr.headRef : nil
@@ -558,7 +567,7 @@ extension AppState {
         openMainRequest += 1
     }
 
-    private func showNoClone(_ pr: PRSnapshot) {
+    func showNoClone(_ pr: PRSnapshot) {
         show(title: "No local clone of \(pr.repo)",
              message: "Docket scans \(workspaceSettings.roots.isEmpty ? "no folders" : workspaceSettings.roots.joined(separator: ", ")). Add a folder or map this repo to a path in Settings > Workspace.")
     }

@@ -105,6 +105,10 @@ struct RowMenu: View {
     var body: some View {
         Button("Open on GitHub") { app.openOnGitHub(pr) }
         Button(PromptKind.forState(pr).actionTitle) { app.startClaude(pr) }
+        if let profile = app.runSettings(for: pr.repo).defaultProfile {
+            Button("Run \(profile.name)") { app.startRun(pr, profile: profile) }
+            if profile.hasStop { Button("Stop \(profile.name)") { app.stopRun(pr, profile: profile) } }
+        }
         Divider()
         SnoozeMenuItems(pr: pr)
     }

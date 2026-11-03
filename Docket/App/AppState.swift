@@ -167,6 +167,10 @@ final class AppState {
     var worktreeRows: [WorktreeRow] = []
     var isScanningWorktrees = false
     var workspaceAlert: WorkspaceAlert?
+    /// `<pr id>@<head sha>` of others' PRs the user agreed to run this session (AppState+Run).
+    @ObservationIgnored var confirmedRunHeads: Set<String> = []
+    /// Set to a repo to open Settings > Run with it selected.
+    var runSettingsRepo: String?
     /// Bumped after git operations so the detail pane reloads local status.
     var localInfoVersion = 0
     /// Authored PRs not updated within this many days stay out of the Inbox. 0 means no limit.
