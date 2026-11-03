@@ -25,8 +25,8 @@ struct RunSettingsView: View {
             }
             if !repo.isEmpty {
                 profilesSection
-                if let index = settings.wrappedValue.profiles.firstIndex(where: { $0.id == selected }) {
-                    ProfileEditor(profile: settings.profiles[index])
+                if let profile = settings.wrappedValue.profiles.first(where: { $0.id == selected }) {
+                    ProfileEditor(profile: profileBinding(profile))
                 }
             }
         }
@@ -48,6 +48,18 @@ struct RunSettingsView: View {
         let repo = repo
         return Binding(get: { app.runSettings(for: repo) },
                        set: { app.workspaceSettings.runProfiles[repo] = $0.profiles.isEmpty ? nil : $0 })
+    }
+
+    /// Looks the profile up by ID on every access. A binding by array index crashes when a text
+    /// field writes back after the profile is deleted.
+    private func profileBinding(_ profile: RunProfile) -> Binding<RunProfile> {
+        let settings = settings
+        let id = profile.id
+        return Binding(get: { settings.wrappedValue.profiles.first { $0.id == id } ?? profile },
+                       set: { new in
+                           guard let index = settings.wrappedValue.profiles.firstIndex(where: { $0.id == id }) else { return }
+                           settings.wrappedValue.profiles[index] = new
+                       })
     }
 
     private var profilesSection: some View {
@@ -160,11 +172,11 @@ private struct ProfileEditor: View {
                 .foregroundStyle(.secondary)
         }
         Section {
-            ForEach($profile.environment) { $variable in
+            ForEach(profile.environment) { variable in
                 HStack {
-                    TextField("NAME", text: $variable.key).font(.system(.body, design: .monospaced)).frame(width: 180)
+                    TextField("NAME", text: field(variable.id, \.key)).font(.system(.body, design: .monospaced)).frame(width: 180)
                     Text("=")
-                    TextField("value", text: $variable.value).font(.system(.body, design: .monospaced))
+                    TextField("value", text: field(variable.id, \.value)).font(.system(.body, design: .monospaced))
                     Button { profile.environment.removeAll { $0.id == variable.id } } label: { Image(systemName: "minus.circle") }
                         .buttonStyle(.borderless)
                 }
@@ -177,6 +189,17 @@ private struct ProfileEditor: View {
             Text("Placeholders in the command and values: {path} (the checkout), {number}, {repo}, and {branch} (same-repository PRs only). Values are used as literal text. These are saved in Docket's preferences, so put secrets in the env file instead.")
                 .foregroundStyle(.secondary)
         }
+    }
+
+    /// A variable's field, looked up by ID: a text field can write back after its row is deleted,
+    /// and then there is nothing to update.
+    private func field(_ id: UUID, _ keyPath: WritableKeyPath<EnvVar, String>) -> Binding<String> {
+        let profile = $profile
+        return Binding(get: { profile.wrappedValue.environment.first { $0.id == id }?[keyPath: keyPath] ?? "" },
+                       set: { value in
+                           guard let index = profile.wrappedValue.environment.firstIndex(where: { $0.id == id }) else { return }
+                           profile.wrappedValue.environment[index][keyPath: keyPath] = value
+                       })
     }
 
     private var invalidKey: some View {
