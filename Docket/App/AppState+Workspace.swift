@@ -442,8 +442,9 @@ extension AppState {
         let branch = pr.isMine && !pr.isCrossRepository && Safety.isSafeBranchName(pr.headRef) ? pr.headRef : nil
         let directory = recordedWorktree(for: pr).map { URL(fileURLWithPath: $0.path) }
             ?? GitWorkspace.worktreeDirectory(root: URL(fileURLWithPath: workspaceSettings.worktreesFolder), repo: pr.repo, number: pr.number)
+        let ownerClone: String
         do {
-            try await workspace.ensureWorktree(number: pr.number, branch: branch, clone: clone, at: directory)
+            ownerClone = try await workspace.ensureWorktree(number: pr.number, branch: branch, repo: pr.repo, clone: clone, at: directory)
         } catch WorkspaceError.branchCheckedOutElsewhere {
             // My branch is open in another worktree already: use that one.
             if let state = try? await workspace.state(of: clone.path) {
@@ -455,7 +456,7 @@ extension AppState {
         }
         let path = Safety.canonicalPath(directory.path)
         if !reviewWorktrees.contains(where: { $0.path == path }) {
-            reviewWorktrees.append(ReviewWorktree(prID: pr.id, repo: pr.repo, number: pr.number, clonePath: clone.path, path: path, createdAt: Date()))
+            reviewWorktrees.append(ReviewWorktree(prID: pr.id, repo: pr.repo, number: pr.number, clonePath: ownerClone, path: path, createdAt: Date()))
             saveWorktreeRecords()
         }
         return path

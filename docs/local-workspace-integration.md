@@ -61,6 +61,7 @@ Never stash or discard changes automatically. If the tree is dirty, show: "platf
 - Mode: someone else's PR gets a detached worktree at the PR head (`pull/<number>/head`). My own same-repo PR gets a worktree on its real branch so I can push; if that branch is already checked out in another worktree, that worktree is used instead (git does not allow one branch in two worktrees).
 - Create: `git -C <clone> fetch origin pull/<number>/head` then `git -C <clone> worktree add <dir> FETCH_HEAD --detach`, or with `gh`: create the worktree, then run `gh pr checkout <number>` inside it.
 - Reuse the worktree if it already exists; run `git fetch` and fast-forward to the new head when the PR has new commits.
+- An existing worktree is reused when it belongs to any local clone whose remote points at the PR's GitHub repo, not only the clone Docket picked; it is fetched through that clone's remote and cleaned up against that clone. A folder from another repository, or one that is not a worktree, is refused and left untouched.
 - Record created worktrees in Application Support so cleanup only touches worktrees the app made.
 - Cleanup: `git -C <clone> worktree remove <dir>` (without `--force`; if it fails because of local changes, report and leave it).
 

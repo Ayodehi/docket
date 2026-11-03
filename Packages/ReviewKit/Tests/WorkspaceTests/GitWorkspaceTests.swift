@@ -81,7 +81,7 @@ import Testing
         let dir = GitWorkspace.worktreeDirectory(root: root.appendingPathComponent(".review-worktrees"), repo: "example-org/web-console", number: 7)
         #expect(dir.lastPathComponent == "example-org-web-console-pr-7")
 
-        try await workspace.ensureWorktree(number: 7, branch: nil, clone: local, at: dir)
+        try await workspace.ensureWorktree(number: 7, branch: nil, repo: "example-org/web-console", clone: local, at: dir)
         #expect(try String(contentsOf: dir.appendingPathComponent("file.txt"), encoding: .utf8) == "two\n")
         #expect(try await workspace.state(of: dir.path).branch == "(detached)")
         #expect(try await workspace.state(of: clone.path).worktrees == [dir.path])
@@ -89,7 +89,7 @@ import Testing
         #expect(try await workspace.state(of: clone.path).branch == "main")
 
         // Reuse is a no-op success.
-        try await workspace.ensureWorktree(number: 7, branch: nil, clone: local, at: dir)
+        try await workspace.ensureWorktree(number: 7, branch: nil, repo: "example-org/web-console", clone: local, at: dir)
 
         // Removal refuses when the worktree has local changes, and keeps them.
         try "review notes\n".write(to: dir.appendingPathComponent("file.txt"), atomically: true, encoding: .utf8)
@@ -143,15 +143,37 @@ import Testing
 
         let local = LocalClone(path: clone.path, remote: "origin", isWorktree: false, modified: Date())
         await #expect(throws: WorkspaceError.foreignWorktree(shared.path)) {
-            try await workspace.ensureWorktree(number: 7, branch: nil, clone: local, at: shared)
+            try await workspace.ensureWorktree(number: 7, branch: nil, repo: "example-org/web-console", clone: local, at: shared)
         }
         // A plain folder in the way is also refused.
         let plain = root.appendingPathComponent("wt/plain")
         try FileManager.default.createDirectory(at: plain, withIntermediateDirectories: true)
         await #expect(throws: WorkspaceError.foreignWorktree(plain.path)) {
-            try await workspace.ensureWorktree(number: 7, branch: nil, clone: local, at: plain)
+            try await workspace.ensureWorktree(number: 7, branch: nil, repo: "example-org/web-console", clone: local, at: plain)
         }
         #expect(GitWorkspace.worktreeDirectory(root: root, repo: "org-a/web", number: 1) != GitWorkspace.worktreeDirectory(root: root, repo: "org-b/web", number: 1))
+    }
+
+    /// A worktree made from a second clone of the same GitHub repo is reused, and reported as
+    /// owned by that clone so cleanup runs against it.
+    @Test func worktreeOfAnotherCloneOfSameRepoIsReused() async throws {
+        let (root, origin, clone) = try await fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let second = root.appendingPathComponent("temp/web-console")
+        try await sh(["clone", origin.path, second.path])
+        try await sh(["-C", second.path, "remote", "set-url", "origin", "git@github.com:example-org/web-console.git"])
+        let dir = root.appendingPathComponent(".review-worktrees/example-org-web-console-pr-7")
+        try await sh(["-C", second.path, "worktree", "add", "--detach", dir.path, "HEAD"])
+        // Local changes: reuse must not fetch or move it.
+        try "review notes\n".write(to: dir.appendingPathComponent("file.txt"), atomically: true, encoding: .utf8)
+
+        let workspace = GitWorkspace(git: git, gh: nil, runner: runner)
+        let local = LocalClone(path: clone.path, remote: "origin", isWorktree: false, modified: Date())
+        let owner = try await workspace.ensureWorktree(number: 7, branch: nil, repo: "example-org/web-console", clone: local, at: dir)
+        #expect(owner == second.path)
+        #expect(try String(contentsOf: dir.appendingPathComponent("file.txt"), encoding: .utf8) == "review notes\n")
+        #expect(try await workspace.remote(of: dir.path, matching: "Example-Org/web-console") == "origin")
+        #expect(try await workspace.remote(of: dir.path, matching: "example-org/other") == nil)
     }
 
     @Test func branchWorktreeForMyOwnPR() async throws {
@@ -160,15 +182,15 @@ import Testing
         let workspace = GitWorkspace(git: git, gh: nil, runner: runner)
         let local = LocalClone(path: clone.path, remote: "origin", isWorktree: false, modified: Date())
         let dir = root.appendingPathComponent("wt/web-console-pr-7")
-        try await workspace.ensureWorktree(number: 7, branch: "mchen/feature", clone: local, at: dir)
+        try await workspace.ensureWorktree(number: 7, branch: "mchen/feature", repo: "example-org/web-console", clone: local, at: dir)
         #expect(try await workspace.state(of: dir.path).branch == "mchen/feature")
 
         // The same branch cannot be checked out in a second worktree.
         await #expect(throws: WorkspaceError.branchCheckedOutElsewhere("mchen/feature")) {
-            try await workspace.ensureWorktree(number: 7, branch: "mchen/feature", clone: local, at: root.appendingPathComponent("wt/other"))
+            try await workspace.ensureWorktree(number: 7, branch: "mchen/feature", repo: "example-org/web-console", clone: local, at: root.appendingPathComponent("wt/other"))
         }
         await #expect(throws: WorkspaceError.unsafeValue("branch name")) {
-            try await workspace.ensureWorktree(number: 7, branch: "x; rm -rf ~", clone: local, at: root.appendingPathComponent("wt/bad"))
+            try await workspace.ensureWorktree(number: 7, branch: "x; rm -rf ~", repo: "example-org/web-console", clone: local, at: root.appendingPathComponent("wt/bad"))
         }
     }
 }

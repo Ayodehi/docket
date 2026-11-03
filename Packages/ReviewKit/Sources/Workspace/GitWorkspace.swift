@@ -120,9 +120,11 @@ public struct GitWorkspace: Sendable {
         }
     }
 
-    /// Creates or refreshes a worktree for a PR.
+    /// Creates or refreshes a worktree for a PR. Returns the path of the clone that owns it: `clone`,
+    /// or another local clone of `repo` when an existing worktree of that clone is reused.
     /// - `branch`: check out this branch (my own PRs, so I can push). `nil`: detached at the PR head (reviews).
-    public func ensureWorktree(number: Int, branch: String?, clone: LocalClone, at directory: URL) async throws {
+    @discardableResult
+    public func ensureWorktree(number: Int, branch: String?, repo: String, clone: LocalClone, at directory: URL) async throws -> String {
         let path = directory.path
         if let branch, !Safety.isSafeBranchName(branch) { throw WorkspaceError.unsafeValue("branch name") }
         let exists = FileManager.default.fileExists(atPath: directory.appendingPathComponent(".git").path)
@@ -131,18 +133,25 @@ public struct GitWorkspace: Sendable {
             throw WorkspaceError.foreignWorktree(path)
         }
         if exists {
-            // Only reuse a worktree of this clone. Fetching this PR into another repo's checkout
-            // would put the wrong code in front of the reviewer.
-            guard try await commonGitDir(path) == commonGitDir(clone.path) else { throw WorkspaceError.foreignWorktree(path) }
-            // Reuse. Move to the new head only when clean; never discard local work.
-            guard try await !state(of: path).isDirty else { return }
+            // Reuse a worktree of this clone, or of another clone of the same GitHub repo. Fetching
+            // this PR into another repo's checkout would put the wrong code in front of the reviewer.
+            let owner = try await commonGitDir(path)
+            var fetchRemote = clone.remote
+            var ownerClone = clone.path
+            if try await owner != commonGitDir(clone.path) {
+                guard let match = try await remote(of: path, matching: repo) else { throw WorkspaceError.foreignWorktree(path) }
+                fetchRemote = match
+                ownerClone = (owner as NSString).lastPathComponent == ".git" ? (owner as NSString).deletingLastPathComponent : owner
+            }
+            // Move to the new head only when clean; never discard local work.
+            guard try await !state(of: path).isDirty else { return ownerClone }
             if let branch {
-                _ = try? await runner.run(git, ["-C", path, "pull", "--ff-only", clone.remote, branch], timeout: 120)
+                _ = try? await runner.run(git, ["-C", path, "pull", "--ff-only", fetchRemote, branch], timeout: 120)
             } else {
-                try await runner.check(git, ["-C", path, "fetch", clone.remote, "pull/\(number)/head"], timeout: 120)
+                try await runner.check(git, ["-C", path, "fetch", fetchRemote, "pull/\(number)/head"], timeout: 120)
                 try await runner.check(git, ["-C", path, "checkout", "--detach", "FETCH_HEAD"], timeout: 60)
             }
-            return
+            return ownerClone
         }
         try FileManager.default.createDirectory(at: directory.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let branch {
@@ -161,6 +170,18 @@ public struct GitWorkspace: Sendable {
             try await runner.check(git, ["-C", clone.path, "fetch", clone.remote, "pull/\(number)/head"], timeout: 120)
             try await runner.check(git, ["-C", clone.path, "worktree", "add", "--detach", path, "FETCH_HEAD"], timeout: 120)
         }
+        return clone.path
+    }
+
+    /// The name of a remote of `path` that points at the GitHub repo, `origin` first, or nil.
+    func remote(of path: String, matching repo: String) async throws -> String? {
+        let output = try await runner.check(git, ["-C", path, "remote", "-v"], timeout: 15)
+        let names = output.split(separator: "\n").compactMap { line -> String? in
+            let fields = line.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard fields.count >= 2, RemoteURL.gitHubRepo(fields[1])?.lowercased() == repo.lowercased() else { return nil }
+            return fields[0]
+        }
+        return names.contains("origin") ? "origin" : names.first
     }
 
     /// The shared `.git` directory of a clone or any of its worktrees.
