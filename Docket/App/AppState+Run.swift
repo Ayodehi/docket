@@ -61,8 +61,10 @@ extension AppState {
                 message: "\"\(profile.name)\" runs a command in \((checkout as NSString).abbreviatingWithTildeInPath), checked out at \(note). Its build files, scripts, and configuration come from there, so only continue if you trust them.",
                 actions: [
                     .init(title: stop ? "Stop" : "Run", role: .destructive) {
+                        // Check again: the folder may have moved to another commit while the
+                        // dialog was open (another action refreshing the worktree).
                         self.confirmedRunHeads.insert(key)
-                        self.launchRun(pr, profile: profile, checkout: checkout, stop: stop)
+                        self.confirmThenLaunch(pr, profile: profile, checkout: checkout, stop: stop)
                     },
                     .init(title: "Cancel", role: .cancel) {},
                 ])
