@@ -201,6 +201,8 @@ A run profile starts a PR's checkout locally with a command the user configured 
 | Env file | An absolute path on this Mac, outside every checkout. |
 | Delivery | **Variable**: export a variable set to the file's path (DevSpace reads `DEVSPACE_ENV_FILE`), so nothing is written into the checkout. **Copy**: copy the file to a path relative to the run folder, for tools that only read a fixed name such as `.env`. |
 | Variables | `NAME=value` pairs. Values are literal text, single-quoted as a whole. |
+| Kubernetes context | Locks the run to one context (see below). Required for DevSpace profiles. |
+| Namespace | DevSpace only, passed as `--namespace`. |
 
 Placeholders in the command and variable values: `{path}` (checkout root), `{number}`, `{repo}`, and `{branch}`. `{branch}` is available only for a same-repository PR whose branch passes the branch-name rules; a fork PR's branch is never used, and the run fails with a message instead. In the command, each substituted value is single-quoted. No PR title, body, comment, or label is ever available.
 
@@ -211,6 +213,14 @@ Placeholders in the command and variable values: `{path}` (checkout root), `{num
 ```
 cd '<checkout>/<folder>' && export DEVSPACE_ENV_FILE='/Users/me/env/web-console.env' && export LOG_LEVEL='debug' && devspace dev
 ```
+
+**Kubernetes context lock.** A fresh worktree has no `.devspace/` cache, so without a lock DevSpace (and every bare `kubectl` or `helm` call in its hooks) uses whatever context is current in the user's shell, which may be a production cluster. With a context set, Docket:
+
+1. Writes a kubeconfig that sets only `current-context` (`~/Library/Caches/Docket/kube/context-<hash>.yaml`, mode 0600, rewritten on every launch) and puts it first in `KUBECONFIG`, ahead of the user's own files. kubectl takes `current-context` from the first file that sets it, so every kubectl, helm, and DevSpace call in that terminal defaults to the locked context; clusters and credentials still come from the user's files and nothing is copied. A `use-context` during the run is written to the lock file and undone on the next launch.
+2. For DevSpace, exports `DEVSPACE_FLAGS='--kube-context <context> [--namespace <ns>]'` (a profile's own `DEVSPACE_FLAGS` variable is appended), so DevSpace ignores any context saved in `.devspace/`.
+3. Adds a guard before the command: unless `kubectl config current-context` prints the locked context and `kubectl config view --minify` resolves it, the line prints a refusal and stops. A missing context fails here rather than falling back to another one.
+
+DevSpace profiles without a context are refused, for Run and Stop alike. Context and namespace names are limited to letters, digits, and `. _ - : / @`, which covers EKS ARNs.
 
 - Docket-supplied values are single-quoted; the command fragment is the user's own setting and goes in as written.
 - The line must stay under the terminal's 1024-byte limit; a longer one is refused with a message to move variables into the env file.

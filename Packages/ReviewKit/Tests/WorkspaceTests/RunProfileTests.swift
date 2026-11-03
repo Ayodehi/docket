@@ -35,15 +35,67 @@ import Testing
         return (root, checkout, envFile)
     }
 
-    @Test func devspaceCommandExportsTheEnvFilePath() throws {
+    private let guardFor = { (context: String) in
+        "{ [ \"$(kubectl config current-context)\" = '\(context)' ] && kubectl config view --minify >/dev/null || { printf '%s\\n' 'Docket: the Kubernetes context is not \(context), or kubectl cannot resolve it. Nothing was run.' >&2; false; }; }"
+    }
+
+    @Test func devspaceCommandLocksTheContextAndExportsTheEnvFilePath() throws {
         let (root, checkout, envFile) = try layout()
         defer { try? FileManager.default.removeItem(atPath: root) }
         var profile = RunProfile.devspace(workingDirectory: "deploy")
         profile.envFile = envFile
-        let command = try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout))
-        #expect(command == "cd '\(checkout)/deploy' && export DEVSPACE_ENV_FILE='\(envFile)' && devspace dev")
-        let stop = try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), stop: true)
-        #expect(stop == "cd '\(checkout)/deploy' && export DEVSPACE_ENV_FILE='\(envFile)' && devspace purge")
+        profile.kubeContext = "k3d-dev"
+        profile.kubeNamespace = "web"
+        let lock = root + "/kube/context.yaml"
+        let prefix = "cd '\(checkout)/deploy' && export DEVSPACE_ENV_FILE='\(envFile)' && export KUBECONFIG='\(lock)':\"${KUBECONFIG:-$HOME/.kube/config}\" && export DEVSPACE_FLAGS='--kube-context k3d-dev --namespace web' && \(guardFor("k3d-dev"))"
+        #expect(try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), kubeLock: lock) == prefix + " && devspace dev")
+        #expect(try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), stop: true, kubeLock: lock) == prefix + " && devspace purge")
+    }
+
+    @Test func devspaceRefusesToRunWithoutAContextOrLock() throws {
+        let (root, checkout, _) = try layout()
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        var profile = RunProfile.devspace(workingDirectory: "deploy")
+        #expect(throws: RunError.contextRequired) { try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), kubeLock: "/x") }
+        #expect(throws: RunError.contextRequired) { try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), stop: true, kubeLock: "/x") }
+        profile.kubeContext = "  "
+        #expect(throws: RunError.contextRequired) { try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), kubeLock: "/x") }
+        profile.kubeContext = "k3d-dev"
+        #expect(throws: RunError.kubeLockMissing) { try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout)) }
+        profile.kubeContext = "dev'; rm -rf ~"
+        #expect(throws: RunError.badKubeName("dev'; rm -rf ~")) { try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), kubeLock: "/x") }
+        profile.kubeContext = "k3d-dev"
+        profile.kubeNamespace = "a b"
+        #expect(throws: RunError.badKubeName("a b")) { try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), kubeLock: "/x") }
+    }
+
+    @Test func customProfileLockKeepsUserVariablesAndMergesDevspaceFlags() throws {
+        let (root, checkout, _) = try layout()
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        let arn = "arn:aws:eks:us-east-1:000000000000:cluster/dev"
+        let custom = RunProfile(name: "Helm", command: "helm list", environment: [EnvVar(key: "KUBECONFIG", value: "/k/extra")], kubeContext: arn)
+        #expect(try RunPlanner.command(checkout: checkout, profile: custom, values: values(checkout), kubeLock: "/l")
+            == "cd '\(checkout)' && export KUBECONFIG='/k/extra' && export KUBECONFIG='/l':\"${KUBECONFIG:-$HOME/.kube/config}\" && \(guardFor(arn)) && helm list")
+        var devspace = RunProfile.devspace(workingDirectory: "")
+        devspace.kubeContext = "k3d-dev"
+        devspace.environment = [EnvVar(key: "DEVSPACE_FLAGS", value: "-p local")]
+        #expect(try RunPlanner.command(checkout: checkout, profile: devspace, values: values(checkout), kubeLock: "/l")
+            == "cd '\(checkout)' && export KUBECONFIG='/l':\"${KUBECONFIG:-$HOME/.kube/config}\" && export DEVSPACE_FLAGS='--kube-context k3d-dev -p local' && \(guardFor("k3d-dev")) && devspace dev")
+    }
+
+    @Test func kubeLockFileSetsOnlyTheContext() throws {
+        let root = try temp()
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        let dir = URL(fileURLWithPath: root + "/kube")
+        let path = try RunPlanner.writeKubeLock(context: "k3d-dev", in: dir)
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "apiVersion: v1\nkind: Config\ncurrent-context: \"k3d-dev\"\n")
+        #expect(try FileManager.default.attributesOfItem(atPath: path)[.posixPermissions] as? Int == 0o600)
+        // Rewritten on the next launch, undoing a use-context made during a run.
+        try "current-context: prod\n".write(toFile: path, atomically: true, encoding: .utf8)
+        #expect(try RunPlanner.writeKubeLock(context: "k3d-dev", in: dir) == path)
+        #expect(try String(contentsOfFile: path, encoding: .utf8).contains("\"k3d-dev\""))
+        #expect(try RunPlanner.writeKubeLock(context: "other", in: dir) != path)
+        #expect(throws: RunError.badKubeName("a\"b")) { try RunPlanner.writeKubeLock(context: "a\"b", in: dir) }
     }
 
     @Test func rootFolderVariablesAndPlaceholders() throws {

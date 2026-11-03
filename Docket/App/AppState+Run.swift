@@ -72,6 +72,14 @@ extension AppState {
         }
     }
 
+    /// Context names from the user's kubeconfig (`kubectl config get-contexts -o name`), for the
+    /// Settings picker. Reads local config only; contacts no cluster.
+    func kubeContexts() async -> [String] {
+        let result = try? await runner.run(URL(fileURLWithPath: "/usr/bin/env"), ["kubectl", "config", "get-contexts", "-o", "name"], timeout: 15)
+        guard let result, result.succeeded else { return [] }
+        return result.stdout.split(separator: "\n").map(String.init).filter(RunPlanner.isValidKubeName)
+    }
+
     private func launchRun(_ pr: PRSnapshot, profile: RunProfile, checkout: String, stop: Bool) {
         let branch = pr.isCrossRepository ? nil : pr.headRef
         let values = RunValues(path: Safety.canonicalPath(checkout), number: pr.number, repo: pr.repo, branch: branch)
@@ -81,7 +89,12 @@ extension AppState {
                     guard let workspace = gitWorkspace else { throw WorkspaceError.toolMissing(.git) }
                     try await RunPlanner.installEnvFile(checkout: checkout, profile: profile, git: workspace)
                 }
-                let command = try RunPlanner.command(checkout: checkout, profile: profile, values: values, stop: stop)
+                var kubeLock: String?
+                if let context = profile.lockedContext {
+                    let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                    kubeLock = try RunPlanner.writeKubeLock(context: context, in: caches.appendingPathComponent("Docket/kube", isDirectory: true))
+                }
+                let command = try RunPlanner.command(checkout: checkout, profile: profile, values: values, stop: stop, kubeLock: kubeLock)
                 let folder = try RunPlanner.folder(checkout: checkout, profile: profile)
                 let outcome = try await launcher.runInTerminal(command, folder: folder)
                 if outcome == .copiedCommand {

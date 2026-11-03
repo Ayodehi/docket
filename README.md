@@ -160,7 +160,7 @@ Then run `xcodegen generate` again.
 
 3. **Pick how Claude starts.** Settings > Claude chooses Terminal or the Claude desktop app, the terminal to use, and the prompt template for each task. Templates can use `{number}`, `{repo}`, `{url}`, `{head_ref}`, `{base_ref}`, and `{path}`. PR titles, descriptions, and comments are never inserted.
 
-4. **Optional: set up Run.** Settings > Run adds commands that start a PR's checkout, per repository. For a DevSpace project, pick the repo, click Detect, and choose an env file kept outside your clones, for example `~/env/web-console.env`; Docket passes its path in `DEVSPACE_ENV_FILE`. A command can chain setup steps, such as `devspace use namespace web && devspace dev`, and the stop command (`devspace purge`) appears as Stop on the PR.
+4. **Optional: set up Run.** Settings > Run adds commands that start a PR's checkout, per repository. For a DevSpace project, pick the repo, click Detect, and choose an env file kept outside your clones, for example `~/env/web-console.env`; Docket passes its path in `DEVSPACE_ENV_FILE`. Choose the Kubernetes context (for example `k3d-dev`) and namespace: DevSpace profiles are refused without one, and every kubectl, helm, and DevSpace call in the run is locked to it, whatever context is current in your shell. The stop command (`devspace purge`) appears as Stop on the PR and uses the same lock.
 
 ## How Claude Code sessions work
 

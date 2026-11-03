@@ -122,7 +122,13 @@ struct RunSettingsView: View {
 }
 
 private struct ProfileEditor: View {
+    @Environment(AppState.self) private var app
     @Binding var profile: RunProfile
+    @State private var contexts: [String] = []
+
+    private func optional(_ keyPath: WritableKeyPath<RunProfile, String?>) -> Binding<String> {
+        Binding(get: { profile[keyPath: keyPath] ?? "" }, set: { profile[keyPath: keyPath] = $0.isEmpty ? nil : $0 })
+    }
 
     var body: some View {
         Section("Edit \(profile.name)") {
@@ -141,6 +147,35 @@ private struct ProfileEditor: View {
                       prompt: Text("optional, for example devspace purge"))
                 .font(.system(.body, design: .monospaced))
         }
+        Section {
+            LabeledContent("Context") {
+                HStack {
+                    TextField("Context", text: optional(\.kubeContext), prompt: Text(profile.kind == .devspace ? "required" : "none"))
+                        .labelsHidden()
+                        .font(.system(.body, design: .monospaced))
+                    Menu("Choose") {
+                        if contexts.isEmpty { Text("No contexts found in your kubeconfig") }
+                        ForEach(contexts, id: \.self) { name in Button(name) { profile.kubeContext = name } }
+                    }
+                    .fixedSize()
+                }
+            }
+            if profile.kind == .devspace && profile.lockedContext == nil {
+                Label("Run and Stop are refused until a context is set.", systemImage: "lock.trianglebadge.exclamationmark").foregroundStyle(Tone.warn.text)
+            } else if let context = profile.lockedContext, !RunPlanner.isValidKubeName(context) {
+                Label("Use the context name as kubectl lists it.", systemImage: "exclamationmark.triangle").foregroundStyle(Tone.warn.text)
+            }
+            if profile.kind == .devspace {
+                TextField("Namespace", text: optional(\.kubeNamespace), prompt: Text("optional, passed as --namespace"))
+                    .font(.system(.body, design: .monospaced))
+            }
+        } header: {
+            Text("Kubernetes")
+        } footer: {
+            Text("Every kubectl, helm, and DevSpace call in the run uses this context, including scripts and hooks, whatever context is current in your shell. Docket puts a file naming it first in KUBECONFIG, passes --kube-context to DevSpace, and stops before the command if kubectl does not report it.")
+                .foregroundStyle(.secondary)
+        }
+        .task { contexts = await app.kubeContexts() }
         Section {
             LabeledContent("Env file") {
                 HStack {

@@ -456,7 +456,7 @@ struct RunMenu: View {
             Menu {
                 Section("Run") {
                     ForEach(settings.profiles) { profile in
-                        Button(profile.name) { app.startRun(pr, profile: profile) }
+                        Button(profile.lockedContext.map { "\(profile.name) on \($0)" } ?? profile.name) { app.startRun(pr, profile: profile) }
                     }
                 }
                 let stoppable = settings.profiles.filter(\.hasStop)
@@ -478,7 +478,7 @@ struct RunMenu: View {
                 app.startRun(pr, profile: primary)
             }
             .fixedSize()
-            .help("Runs \"\(primary.name)\" in a terminal, in this PR's worktree or clone. The menu picks another profile or runs a stop command.")
+            .help("Runs \"\(primary.name)\" in a terminal, in this PR's worktree or clone\(primary.lockedContext.map { ", locked to the Kubernetes context \($0)" } ?? ""). The menu picks another profile or runs a stop command.")
         }
     }
 }

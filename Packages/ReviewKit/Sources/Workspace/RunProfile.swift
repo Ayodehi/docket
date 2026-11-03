@@ -53,10 +53,15 @@ public struct RunProfile: Codable, Sendable, Hashable, Identifiable {
     public var envFile: String?
     public var envFileDelivery: EnvFileDelivery
     public var environment: [EnvVar]
+    /// Locks every kubectl, helm, and DevSpace call in the run to this context (`RunPlanner.command`).
+    /// Required for DevSpace profiles: without it they would deploy to whatever context is current.
+    public var kubeContext: String?
+    /// Passed to DevSpace as `--namespace`. Other tools take the namespace from the context.
+    public var kubeNamespace: String?
 
     public init(id: UUID = UUID(), name: String, kind: RunKind = .custom, workingDirectory: String = "", command: String,
                 stopCommand: String? = nil, envFile: String? = nil, envFileDelivery: EnvFileDelivery = .copy(to: ".env"),
-                environment: [EnvVar] = []) {
+                environment: [EnvVar] = [], kubeContext: String? = nil, kubeNamespace: String? = nil) {
         self.id = id
         self.name = name
         self.kind = kind
@@ -66,6 +71,8 @@ public struct RunProfile: Codable, Sendable, Hashable, Identifiable {
         self.envFile = envFile
         self.envFileDelivery = envFileDelivery
         self.environment = environment
+        self.kubeContext = kubeContext
+        self.kubeNamespace = kubeNamespace
     }
 
     /// `devspace dev` in the folder holding `devspace.yaml`, stopped with `devspace purge`. The env
@@ -73,6 +80,11 @@ public struct RunProfile: Codable, Sendable, Hashable, Identifiable {
     public static func devspace(workingDirectory: String) -> RunProfile {
         RunProfile(name: "DevSpace", kind: .devspace, workingDirectory: workingDirectory, command: "devspace dev",
                    stopCommand: "devspace purge", envFileDelivery: .variable("DEVSPACE_ENV_FILE"))
+    }
+
+    /// The trimmed context, or nil when none is set.
+    public var lockedContext: String? {
+        kubeContext.map { $0.trimmingCharacters(in: .whitespaces) }.flatMap { $0.isEmpty ? nil : $0 }
     }
 
     public var hasStop: Bool { !(stopCommand ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
@@ -123,6 +135,9 @@ public enum RunError: Error, Sendable, Equatable, CustomStringConvertible {
     case notIgnored(String)
     case destinationDiffers(String)
     case tooLong
+    case contextRequired
+    case badKubeName(String)
+    case kubeLockMissing
 
     public var description: String {
         switch self {
@@ -137,6 +152,9 @@ public enum RunError: Error, Sendable, Equatable, CustomStringConvertible {
         case .notIgnored(let path): "\(path) is not ignored by git, so Docket did not copy the env file there. Add it to .gitignore or deliver the file through a variable."
         case .destinationDiffers(let path): "\(path) already exists with different contents. Docket did not replace it."
         case .tooLong: "The run command is longer than a terminal line allows. Move variables into the env file."
+        case .contextRequired: "DevSpace profiles need a Kubernetes context, so a run can never deploy to whatever context is current. Set one in Settings > Run."
+        case .badKubeName(let name): "\"\(name)\" is not a valid Kubernetes context or namespace name."
+        case .kubeLockMissing: "Docket could not prepare the Kubernetes context lock, so nothing was run."
         }
     }
 }
@@ -149,6 +167,30 @@ public enum RunPlanner {
         guard let first = key.unicodeScalars.first, !CharacterSet.decimalDigits.contains(first) else { return false }
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
         return key.unicodeScalars.allSatisfy(allowed.contains)
+    }
+
+    /// Context names (including EKS ARNs) and namespaces: letters, digits, and `. _ - : / @`.
+    public static func isValidKubeName(_ name: String) -> Bool {
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-:/@")
+        return !name.isEmpty && name.count <= 253 && !name.hasPrefix("-") && name.unicodeScalars.allSatisfy(allowed.contains)
+    }
+
+    /// Writes a kubeconfig that sets only `current-context`, mode 0600, and returns its path. Listed
+    /// first in `KUBECONFIG`, it overrides the current context of the user's own files, which still
+    /// supply clusters and credentials; nothing from them is copied. Rewritten on every launch, so a
+    /// `use-context` inside one run (kubectl writes it to this first file) does not carry over.
+    public static func writeKubeLock(context: String, in directory: URL) throws -> String {
+        guard isValidKubeName(context) else { throw RunError.badKubeName(context) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in context.utf8 { hash = (hash ^ UInt64(byte)) &* 0x100000001b3 }
+        let file = directory.appendingPathComponent("context-\(String(hash, radix: 16)).yaml")
+        let yaml = "apiVersion: v1\nkind: Config\ncurrent-context: \"\(context)\"\n"
+        try? FileManager.default.removeItem(at: file)
+        guard FileManager.default.createFile(atPath: file.path, contents: Data(yaml.utf8), attributes: [.posixPermissions: 0o600]) else {
+            throw RunError.kubeLockMissing
+        }
+        return file.path
     }
 
     /// A relative path with no `..`, `.` or empty components. Empty means the root.
@@ -204,18 +246,44 @@ public enum RunPlanner {
 
     /// `cd '<folder>' && export KEY='value' && ... && <command>`. The command is the user's own
     /// shell fragment; every value Docket adds is single-quoted.
-    public static func command(checkout: String, profile: RunProfile, values: RunValues, stop: Bool = false) throws -> String {
+    ///
+    /// With a context, `kubeLock` (from `writeKubeLock`) goes first in `KUBECONFIG`, DevSpace gets
+    /// `--kube-context` (and `--namespace`) through `DEVSPACE_FLAGS`, and a guard stops the line
+    /// unless kubectl reports that context as current and can resolve it.
+    public static func command(checkout: String, profile: RunProfile, values: RunValues, stop: Bool = false, kubeLock: String? = nil) throws -> String {
         let fragment = (stop ? profile.stopCommand ?? "" : profile.command).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !fragment.isEmpty else { throw stop ? RunError.noStopCommand : RunError.emptyCommand }
+        let context = profile.lockedContext
+        if profile.kind == .devspace && context == nil { throw RunError.contextRequired }
+        let namespace = profile.kubeNamespace.map { $0.trimmingCharacters(in: .whitespaces) }.flatMap { $0.isEmpty ? nil : $0 }
+        if let context, !isValidKubeName(context) { throw RunError.badKubeName(context) }
+        if let namespace, !isValidKubeName(namespace) { throw RunError.badKubeName(namespace) }
+        if context != nil && kubeLock == nil { throw RunError.kubeLockMissing }
         let folder = try folder(checkout: checkout, profile: profile)
         var steps = ["cd \(Safety.shellQuote(folder))"]
         if let file = try envFile(of: profile, checkout: checkout), case .variable(let name) = profile.envFileDelivery {
             guard isValidKey(name) else { throw RunError.badKey(name) }
             steps.append("export \(name)=\(Safety.shellQuote(file))")
         }
+        var userDevspaceFlags: String?
         for variable in profile.environment where !variable.key.isEmpty {
             guard isValidKey(variable.key) else { throw RunError.badKey(variable.key) }
-            steps.append("export \(variable.key)=\(Safety.shellQuote(try substitute(variable.value, values: values, quoted: false)))")
+            let value = try substitute(variable.value, values: values, quoted: false)
+            if context != nil && profile.kind == .devspace && variable.key == "DEVSPACE_FLAGS" {
+                userDevspaceFlags = value
+                continue
+            }
+            steps.append("export \(variable.key)=\(Safety.shellQuote(value))")
+        }
+        if let context, let kubeLock {
+            // After the user's variables, so a KUBECONFIG of theirs is kept behind the lock.
+            steps.append("export KUBECONFIG=\(Safety.shellQuote(kubeLock)):\"${KUBECONFIG:-$HOME/.kube/config}\"")
+            if profile.kind == .devspace {
+                let flags = ["--kube-context", context] + (namespace.map { ["--namespace", $0] } ?? []) + (userDevspaceFlags.map { [$0] } ?? [])
+                steps.append("export DEVSPACE_FLAGS=\(Safety.shellQuote(flags.joined(separator: " ")))")
+            }
+            let refusal = Safety.shellQuote("Docket: the Kubernetes context is not \(context), or kubectl cannot resolve it. Nothing was run.")
+            steps.append("{ [ \"$(kubectl config current-context)\" = \(Safety.shellQuote(context)) ] && kubectl config view --minify >/dev/null || { printf '%s\\n' \(refusal) >&2; false; }; }")
         }
         steps.append(try substitute(fragment, values: values, quoted: true))
         let line = steps.joined(separator: " && ")
