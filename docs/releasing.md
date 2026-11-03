@@ -11,7 +11,7 @@ The version is set in `project.yml`, in the `Docket` target's settings:
 - `MARKETING_VERSION`: the version users see, such as `0.2.0`. The release tag is `v` plus this value.
 - `CURRENT_PROJECT_VERSION`: the build number. Increase it for every build you ship: installed copies only offer an update whose build number is higher than their own, and the script refuses to build a release whose build number is not higher than the latest published one.
 
-`Info.plist` takes both from these settings. Bump them in a pull request before you release.
+`Info.plist` takes both from these settings. `tools/bump_version.sh --patch` (or `--minor`, `--major`) sets both for the next release: the version counts from the latest published GitHub Release, and the build number goes one past the published one.
 
 ## One-time setup
 
@@ -73,17 +73,34 @@ It builds two Developer ID signed copies with the bundle ID `io.github.docket.te
 
 To upgrade Sparkle, read its release notes, change `exactVersion` in `project.yml`, and run this test before releasing.
 
+## Releasing with Claude Code
+
+In Claude Code, run this from an up-to-date, clean `main`:
+
+```
+/release --patch
+```
+
+Use `--minor` or `--major` for those parts. The command (`.claude/skills/release/SKILL.md`) runs the checklist below without stopping: it bumps the version, commits and pushes the bump to `main`, builds and notarizes, writes release notes covering user-visible changes, publishes the release, and checks that the live update feed and DMG verify. It stops at the first failed check; running it again after a failure picks up from the pushed bump.
+
 ## Release checklist
 
-1. Merge a pull request that bumps `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`.
-2. On an up-to-date, clean `main`, build, notarize, and create a draft release:
+1. On an up-to-date, clean `main`, bump the version, then commit and push it:
+
+   ```bash
+   tools/bump_version.sh --patch
+   git commit -am "Bump version to <version> (build <build>)"
+   git push origin main
+   ```
+
+2. Build, notarize, and create a draft release:
 
    ```bash
    tools/release.sh --publish
    ```
 
-   The script signs the app and Sparkle's helpers with the hardened runtime and a secure timestamp, notarizes and staples the app, packages it into `dist/Docket-<version>.dmg`, signs, notarizes, and staples the DMG, and checks it with `spctl`. It then writes `dist/appcast.xml` with the DMG's EdDSA signature and creates a draft GitHub Release `v<version>` targeting the current commit, with the DMG, its SHA-256 checksum, and the feed attached and notes generated from merged pull requests. It refuses to run with uncommitted changes or if the tag or release already exists. Notarization usually takes a few minutes.
+   The script signs the app and Sparkle's helpers with the hardened runtime and a secure timestamp, notarizes and staples the app, packages it into `dist/Docket-<version>.dmg`, signs, notarizes, and staples the DMG, and checks it with `spctl`. It then writes `dist/appcast.xml` with the DMG's EdDSA signature and creates a draft GitHub Release `v<version>` targeting the current commit, with the DMG, its SHA-256 checksum, and the feed attached and notes generated from merged pull requests. It refuses to run with uncommitted changes, with a commit that is not pushed, or if the tag or release already exists. Notarization usually takes a few minutes.
 
    Without `--publish`, the script stops after writing the DMG and feed.
 3. Download the DMG from the draft on another Mac if you can, open it, drag Docket to Applications, and launch it.
-4. Edit the draft's notes so they describe user-visible changes only, then publish it on GitHub or with `gh release edit v<version> --draft=false`. Publishing creates the tag and makes it the latest release, so installed copies offer it the next time they check.
+4. Edit the draft's notes so they describe user-visible changes only, then publish it on GitHub or with `gh release edit v<version> --draft=false --latest`. Publishing creates the tag and makes it the latest release, so installed copies offer it the next time they check.
