@@ -152,7 +152,7 @@ public enum RunError: Error, Sendable, Equatable, CustomStringConvertible {
         case .notIgnored(let path): "\(path) is not ignored by git, so Docket did not copy the env file there. Add it to .gitignore or deliver the file through a variable."
         case .destinationDiffers(let path): "\(path) already exists with different contents. Docket did not replace it."
         case .tooLong: "The run command is longer than a terminal line allows. Move variables into the env file."
-        case .contextRequired: "DevSpace profiles need a Kubernetes context, so a run can never deploy to whatever context is current. Set one in Settings > Run."
+        case .contextRequired: "Set a Kubernetes context for this profile in Settings > Run."
         case .badKubeName(let name): "\"\(name)\" is not a valid Kubernetes context or namespace name."
         case .kubeLockMissing: "Docket could not prepare the Kubernetes context lock, so nothing was run."
         }
