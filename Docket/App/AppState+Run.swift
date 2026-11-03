@@ -10,46 +10,64 @@ extension AppState {
     }
 
     /// Runs `profile` (or the repo's default) on `pr`, in the same folder Claude would use.
-    /// Another person's PR asks first, once per head commit: running a checkout runs its code.
-    func startRun(_ pr: PRSnapshot, profile: RunProfile? = nil, confirmed: Bool = false) {
+    /// Another person's PR asks first, for the commit actually checked out there.
+    func startRun(_ pr: PRSnapshot, profile: RunProfile? = nil) {
         guard let profile = profile ?? runSettings(for: pr.repo).defaultProfile else {
             return show(title: "No run profile for \(pr.repo)", message: "Add one in Settings > Run.")
         }
-        guard confirmed || confirmRun(pr, profile: profile, action: "Run", then: { self.startRun(pr, profile: profile, confirmed: true) }) else { return }
         withWorkFolder(pr, location: .automatic, question: "Where should \"\(profile.name)\" run?") { folder in
-            self.launchRun(pr, profile: profile, checkout: folder, stop: false)
+            self.confirmThenLaunch(pr, profile: profile, checkout: folder, stop: false)
         }
     }
 
-    /// Runs the profile's stop command in the PR's review worktree, or else the main clone. Never
-    /// creates a worktree or switches branches.
-    func stopRun(_ pr: PRSnapshot, profile: RunProfile? = nil, confirmed: Bool = false) {
+    /// Runs the profile's stop command where this PR is checked out: its review worktree, or the
+    /// main clone when that is on the PR's branch. Never creates a worktree or switches branches.
+    func stopRun(_ pr: PRSnapshot, profile: RunProfile? = nil) {
         guard let profile = profile ?? runSettings(for: pr.repo).defaultProfile, profile.hasStop else {
             return show(title: "No stop command", message: "Add a stop command to the run profile in Settings > Run.")
         }
-        // A stop command reads the checkout's configuration too (devspace purge runs its hooks).
-        guard confirmed || confirmRun(pr, profile: profile, action: "Stop", then: { self.stopRun(pr, profile: profile, confirmed: true) }) else { return }
-        guard let folder = recordedWorktree(for: pr)?.path ?? clone(for: pr.repo)?.path else { return showNoClone(pr) }
-        launchRun(pr, profile: profile, checkout: folder, stop: true)
+        Task {
+            var folder = recordedWorktree(for: pr)?.path
+            if folder == nil, let clone = clone(for: pr.repo), await isOnPRBranch(clone, pr) { folder = clone.path }
+            guard let folder else {
+                return show(title: "\(pr.repoName) #\(pr.number) is not checked out",
+                            message: "Docket runs the stop command only in this PR's worktree or a clone on its branch. Run the stop command yourself from the checkout that is running.")
+            }
+            // A stop command reads the checkout's configuration too (devspace purge runs its hooks).
+            confirmThenLaunch(pr, profile: profile, checkout: folder, stop: true)
+        }
     }
 
-    /// True when `pr` may run now: the user's own PR, or another person's head commit already
-    /// confirmed this session. Otherwise asks, calls `then` on confirmation, and returns false.
-    private func confirmRun(_ pr: PRSnapshot, profile: RunProfile, action: String, then: @escaping @MainActor () -> Void) -> Bool {
-        let head = "\(pr.id)@\(pr.headSha)"
-        if pr.isMine || confirmedRunHeads.contains(head) { return true }
-        workspaceAlert = WorkspaceAlert(
-            title: "Run \(pr.author)'s code?",
-            message: "\"\(profile.name)\" runs a command in this PR's checkout on your Mac. Its build files, scripts, and configuration come from the PR, so only continue if you trust the changes.",
-            actions: [
-                .init(title: action, role: .destructive) {
-                    self.confirmedRunHeads.insert(head)
-                    then()
-                },
-                .init(title: "Cancel", role: .cancel) {},
-            ])
-        openMainRequest += 1
-        return false
+    /// Another person's PR asks first, once per commit per app session, keyed to the commit checked
+    /// out in `checkout` at this moment, not the one Docket last synced: the worktree may have
+    /// fetched newer commits, or the folder may be on another branch.
+    private func confirmThenLaunch(_ pr: PRSnapshot, profile: RunProfile, checkout: String, stop: Bool) {
+        if pr.isMine { return launchRun(pr, profile: profile, checkout: checkout, stop: stop) }
+        guard let workspace = gitWorkspace else { return show(WorkspaceError.toolMissing(.git)) }
+        Task {
+            let head: String
+            do {
+                head = try await workspace.runner.check(workspace.git, ["-C", checkout, "rev-parse", "HEAD"], timeout: 15)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                return show(error)
+            }
+            let key = "\(pr.id)@\(head)"
+            if confirmedRunHeads.contains(key) { return launchRun(pr, profile: profile, checkout: checkout, stop: stop) }
+            let commit = String(head.prefix(7))
+            let note = head == pr.headSha ? "the PR's latest commit \(commit)" : "commit \(commit), which is not the PR head Docket last saw"
+            workspaceAlert = WorkspaceAlert(
+                title: "Run \(pr.author)'s code?",
+                message: "\"\(profile.name)\" runs a command in \((checkout as NSString).abbreviatingWithTildeInPath), checked out at \(note). Its build files, scripts, and configuration come from there, so only continue if you trust them.",
+                actions: [
+                    .init(title: stop ? "Stop" : "Run", role: .destructive) {
+                        self.confirmedRunHeads.insert(key)
+                        self.launchRun(pr, profile: profile, checkout: checkout, stop: stop)
+                    },
+                    .init(title: "Cancel", role: .cancel) {},
+                ])
+            openMainRequest += 1
+        }
     }
 
     private func launchRun(_ pr: PRSnapshot, profile: RunProfile, checkout: String, stop: Bool) {

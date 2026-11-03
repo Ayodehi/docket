@@ -294,7 +294,7 @@ extension AppState {
         }
     }
 
-    private func isOnPRBranch(_ clone: LocalClone, _ pr: PRSnapshot) async -> Bool {
+    func isOnPRBranch(_ clone: LocalClone, _ pr: PRSnapshot) async -> Bool {
         guard let state = try? await gitWorkspace?.state(of: clone.path) else { return false }
         return state.branch == pr.headRef || state.branch == "pr/\(pr.number)"
     }
