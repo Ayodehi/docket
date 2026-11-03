@@ -11,6 +11,7 @@ swift test --package-path Packages/ReviewKit
 ```
 
 - Install: `tools/install.sh` builds Release and replaces `/Applications/Docket.app`. Debug builds in `.build/DerivedData` are for development; launching one makes it take over Launch at login until the installed app runs again.
+- Release: `/release --patch` (or `--minor`, `--major`) runs the whole release in `docs/releasing.md` from `main`.
 - App icon: drawn by `tools/make_icon.swift` (no SF Symbols; their license excludes app icons).
 - `project.yml` is the source of truth. `Docket.xcodeproj` is generated and gitignored; never edit it by hand.
 - Signing and the bundle ID prefix live in `Config/Signing.xcconfig` (ad hoc, `io.github.docket`), overridden by an uncommitted `Config/Local.xcconfig`. Never commit a team ID or personal bundle prefix.

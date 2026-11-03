@@ -47,6 +47,9 @@ sparkle_bin="$derived/SourcePackages/artifacts/sparkle/Sparkle/bin"
 if $publish; then
   [ -z "$(git status --porcelain)" ] || { echo "Commit or discard local changes before publishing." >&2; exit 1; }
   command -v gh >/dev/null || { echo "Publishing needs the GitHub CLI (gh)." >&2; exit 1; }
+  # The release targets this commit, so GitHub must have it.
+  git fetch -q origin
+  [ -n "$(git branch -r --contains HEAD)" ] || { echo "Push this commit before publishing." >&2; exit 1; }
 fi
 
 if [ "$mode" = adhoc ]; then

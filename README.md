@@ -202,7 +202,7 @@ Replace the subsystem if you set your own bundle ID prefix.
 | `Packages/ReviewKit/` | Core logic as a Swift package, testable without UI: `GitHubKit`, `ReviewCore`, `Sync`, `Workspace`, `Persistence` |
 | `Config/` | Signing settings |
 | `docs/` | Design spec: PRD, architecture, GitHub integration, status model, workspace integration, and security |
-| `tools/` | `install.sh`, `release.sh` (see [Releasing](docs/releasing.md)), and the app icon generator |
+| `tools/` | `install.sh`, `release.sh` and `bump_version.sh` (see [Releasing](docs/releasing.md)), and the app icon generator |
 
 `project.yml` is the source of truth for the Xcode project; `Docket.xcodeproj` is generated and not committed.
 
