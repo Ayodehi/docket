@@ -129,6 +129,9 @@ public struct StatusCheckRollup: Codable, Sendable, Hashable {
 
 /// A `CheckRun` or a `StatusContext`, flattened.
 public struct CheckContext: Codable, Sendable, Hashable {
+    /// `contexts(first:)` in the detail query. A full page may be missing checks.
+    public static let fetchLimit = 50
+
     public var typename: String
     // CheckRun
     public var name: String?
@@ -142,11 +145,23 @@ public struct CheckContext: Codable, Sendable, Hashable {
     public var state: String?
     public var targetUrl: String?
     public var createdAt: Date?
+    /// The Actions workflow behind a check run. `nil` for other apps and in older caches.
+    public var checkSuite: CheckSuite? = nil
+
+    public struct CheckSuite: Codable, Sendable, Hashable {
+        public struct WorkflowRun: Codable, Sendable, Hashable {
+            public struct Workflow: Codable, Sendable, Hashable { public var name: String }
+            public var workflow: Workflow
+        }
+        public var workflowRun: WorkflowRun?
+    }
+
+    public var workflowName: String? { checkSuite?.workflowRun?.workflow.name }
 
     enum CodingKeys: String, CodingKey {
         case typename = "__typename"
         case name, status, conclusion, detailsUrl, startedAt, completedAt
-        case context, state, targetUrl, createdAt
+        case context, state, targetUrl, createdAt, checkSuite
     }
 }
 
