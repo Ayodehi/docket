@@ -116,7 +116,14 @@ final class AppState {
     var snoozes: [String: Snooze] = [:]
     var snoozed: Set<String> { Set(snoozes.keys) }
     var notificationSettings: NotificationSettings {
-        didSet { settingsStore.set(notificationSettings, forKey: "notificationSettings") }
+        didSet {
+            settingsStore.set(notificationSettings, forKey: "notificationSettings")
+            // Ignored bots also decide which comments wait on my reply.
+            if notificationSettings.ignoredBots != oldValue.ignoredBots {
+                rederive()
+                rebaseline()
+            }
+        }
     }
     var notificationStatus: UNAuthorizationStatus = .notDetermined
     var notificationSoundsAllowed = true
@@ -160,6 +167,10 @@ final class AppState {
     var worktreeRows: [WorktreeRow] = []
     var isScanningWorktrees = false
     var workspaceAlert: WorkspaceAlert?
+    /// `<pr id>@<head sha>` of others' PRs the user agreed to run this session (AppState+Run).
+    @ObservationIgnored var confirmedRunHeads: Set<String> = []
+    /// Set to a repo to open Settings > Run with it selected.
+    var runSettingsRepo: String?
     /// Bumped after git operations so the detail pane reloads local status.
     var localInfoVersion = 0
     /// Authored PRs not updated within this many days stay out of the Inbox. 0 means no limit.
@@ -522,7 +533,8 @@ final class AppState {
             if hiddenRepos.contains(pr.repository.nameWithOwner) { continue }
             // First sighting sets the "new comments" baseline, so old comments do not flood the Inbox.
             if lastViewed[pr.id] == nil { lastViewed[pr.id] = now }
-            let context = DerivationContext(viewer: viewer, teams: syncState.teams, lastViewed: lastViewed, ignoredChecks: ignoredChecks, now: now)
+            let context = DerivationContext(viewer: viewer, teams: syncState.teams, lastViewed: lastViewed, ignoredChecks: ignoredChecks,
+                                            ignoredAuthors: Set(notificationSettings.ignoredBots), now: now)
             derived.append(StatusDeriver.snapshot(for: pr, context: context, foundByRequestSearch: record.sources.contains(.requested),
                                                   watched: record.sources.contains(.watched), previous: previous[pr.id]))
         }

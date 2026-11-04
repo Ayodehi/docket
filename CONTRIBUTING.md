@@ -23,7 +23,7 @@ See the [README](README.md#signing) for signing with your own team. Never commit
 - Put core logic in `Packages/ReviewKit` with tests; keep the app target to scenes, views, and view models.
 - `project.yml` is the source of truth. Do not commit `Docket.xcodeproj`.
 - The GitHub token lives only in the Keychain. Never write it to settings, files, logs, or test fixtures.
-- Run processes with `Process` and an argument array. The terminal launch command in `Workspace` is the only shell string.
+- Run processes with `Process` and an argument array. The terminal launch commands in `Workspace` (Claude and run profiles) are the only shell strings.
 - Never put PR titles, bodies, comments, labels, or fork branch names into commands or Claude prompts. Validate branch names and single-quote paths.
 - Never stash, reset, force-push, delete branches, or remove worktrees with `--force` automatically.
 - Show status with an icon and text, never color alone.

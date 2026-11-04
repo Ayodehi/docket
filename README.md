@@ -11,8 +11,10 @@ It answers one question: whose move is it, and on which PR?
 - **Several views.** A triage list grouped by whose move it is, a board, and a table in the main window, plus a menu bar popover, a compact always-available window, and a global quick switcher.
 - **Local workspace.** Docket finds your local clones, creates review worktrees for PRs, and opens them in your terminal or editor. It never stashes, resets, or force-pushes on its own.
 - **Claude Code sessions.** One click starts Claude Code on a PR with a prompt chosen by its state: review it, address feedback, fix failing CI, or resolve conflicts. Sessions open in a terminal (Terminal, iTerm2, or a custom command) or in the Claude desktop app.
+- **Run a PR locally.** Per-repository run profiles start a PR's checkout with your own command, such as `devspace dev` with a chosen env file, and stop it again. DevSpace projects are detected.
 - **Safer reviews of others' PRs.** Terminal review sessions cannot edit files, pin the permission mode, and post a review only after you confirm. For other people's PRs, Claude starts without the checkout's `.claude` settings, hooks, and `.mcp.json` servers.
 - **Optional review actions.** Request, re-request, or dismiss reviews from Docket. Off by default.
+- **Updates.** Release builds update themselves from GitHub Releases with Check for Updates….
 
 ## Requirements
 
@@ -22,9 +24,37 @@ It answers one question: whose move is it, and on which PR?
 - `git`.
 - Optional: [GitHub CLI](https://cli.github.com) (`gh`), to import its token and for Claude to read PRs; the [Claude Code CLI](https://docs.claude.com/en/docs/claude-code/overview) or the Claude desktop app, for sessions.
 
+## Download
+
+Signed and notarized releases for Apple silicon Macs are published on the [Releases](https://github.com/Ayodehi/docket/releases) page when available.
+
+1. Download `Docket-<version>.dmg` from the latest release.
+2. Open it and drag Docket to the Applications folder.
+3. Eject the disk image, then open Docket from Applications and continue with [First launch](#4-first-launch).
+
+To update, choose **Docket > Check for Updates…** (also in Settings > General). Docket downloads the new release, checks its signatures, replaces itself, and relaunches. On the second launch it asks once whether to check automatically each day. On an Intel Mac, build from source.
+
+### Switching from a source build
+
+Releases use the bundle ID `io.github.docket.Docket`. Quit Docket before you replace it. PR history, snoozes, and notification history are kept in `~/Library/Application Support/Docket`, which every copy shares. Settings and the GitHub token are stored under the bundle ID, so what carries over depends on how you built it:
+
+- **Built with the default signing settings:** the bundle ID is the same, so everything carries over. The release has a different signature, so on first launch macOS asks whether Docket may use its Keychain item; choose Always Allow.
+- **Built with your own bundle ID prefix** (in `Config/Local.xcconfig`): the release is a separate app to macOS.
+  1. With Docket quit, copy your settings, replacing `com.example` with your prefix:
+
+     ```bash
+     defaults export com.example.Docket - | defaults import io.github.docket.Docket -
+     defaults delete io.github.docket.Docket launchAtLoginPath
+     ```
+
+     The second command lets the release register itself for Launch at login. It prints an error if Launch at login was never on; that is fine.
+  2. Replace the app in Applications with the release and open it.
+  3. Sign in again: paste a token or import the GitHub CLI's.
+  4. If System Settings > General > Login Items shows a second Docket entry, remove the one that no longer works. The old token stays in your Keychain under your old bundle ID until you delete it.
+
 ## Build and install
 
-Docket is built from source. These steps take you from nothing to Docket running in your menu bar.
+These steps build Docket from source and take you from nothing to Docket running in your menu bar.
 
 ### 1. Install the tools
 
@@ -130,6 +160,8 @@ Then run `xcodegen generate` again.
 
 3. **Pick how Claude starts.** Settings > Claude chooses Terminal or the Claude desktop app, the terminal to use, and the prompt template for each task. Templates can use `{number}`, `{repo}`, `{url}`, `{head_ref}`, `{base_ref}`, and `{path}`. PR titles, descriptions, and comments are never inserted.
 
+4. **Optional: set up Run.** Settings > Run adds commands that start a PR's checkout, per repository. For a DevSpace project, pick the repo, click Detect, and choose an env file kept outside your clones, for example `~/env/web-console.env`; Docket passes its path in `DEVSPACE_ENV_FILE`. Choose the Kubernetes context (for example `k3d-dev`) and namespace: DevSpace profiles are refused without one, and every kubectl, helm, and DevSpace call in the run is locked to it, whatever context is current in your shell. The stop command (`devspace purge`) appears as Stop on the PR and uses the same lock.
+
 ## How Claude Code sessions work
 
 Docket starts the `claude` CLI in the PR's worktree or clone. The prompt is passed through a temporary file that the launch command deletes once read; nothing written by the PR's author is placed in the command or the prompt.
@@ -149,7 +181,7 @@ See [Local workspace and Claude Code integration](docs/local-workspace-integrati
 ## Privacy and security
 
 - The GitHub token lives only in the login Keychain. It is never written to files, settings, or logs.
-- Docket talks only to `api.github.com`. There is no telemetry, crash reporting, or update server.
+- Docket talks to `api.github.com` for your PRs. Release builds also check GitHub Releases for updates when you ask, or daily if you opt in, without sending your token. There is no telemetry or crash reporting.
 - Docket is read-only against GitHub unless you turn on review actions.
 - Processes run with argument arrays; the terminal launch command is the only shell string, and every value in it is validated or single-quoted.
 
@@ -173,7 +205,7 @@ Replace the subsystem if you set your own bundle ID prefix.
 | `Packages/ReviewKit/` | Core logic as a Swift package, testable without UI: `GitHubKit`, `ReviewCore`, `Sync`, `Workspace`, `Persistence` |
 | `Config/` | Signing settings |
 | `docs/` | Design spec: PRD, architecture, GitHub integration, status model, workspace integration, and security |
-| `tools/` | `install.sh` and the app icon generator |
+| `tools/` | `install.sh`, `release.sh` and `bump_version.sh` (see [Releasing](docs/releasing.md)), and the app icon generator |
 
 `project.yml` is the source of truth for the Xcode project; `Docket.xcodeproj` is generated and not committed.
 

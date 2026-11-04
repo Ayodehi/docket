@@ -4,6 +4,7 @@ import SwiftUI
 struct DocketApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appState = AppState()
+    @State private var updater = Updater()
 
     var body: some Scene {
         MenuBarExtra {
@@ -20,7 +21,7 @@ struct DocketApp: App {
                 .environment(appState)
         }
         .defaultSize(width: 1100, height: 700)
-        .commands { DocketCommands(app: appState) }
+        .commands { DocketCommands(app: appState, updater: updater) }
 
         Window("Compact", id: "compact") {
             CompactWindowView()
@@ -37,6 +38,7 @@ struct DocketApp: App {
         Settings {
             SettingsView()
                 .environment(appState)
+                .environment(updater)
         }
     }
 }

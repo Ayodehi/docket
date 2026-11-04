@@ -10,13 +10,17 @@ public struct DerivationContext: Sendable {
     public var lastViewed: [String: Date]
     /// Check name patterns (case-insensitive substring) to leave out of the CI status.
     public var ignoredChecks: [String]
+    /// Logins (bots) whose comments never wait on my reply.
+    public var ignoredAuthors: Set<String>
     public var now: Date
 
-    public init(viewer: String, teams: Set<String>?, lastViewed: [String: Date], ignoredChecks: [String] = [], now: Date) {
+    public init(viewer: String, teams: Set<String>?, lastViewed: [String: Date], ignoredChecks: [String] = [],
+                ignoredAuthors: Set<String> = [], now: Date) {
         self.viewer = viewer
         self.teams = teams
         self.lastViewed = lastViewed
         self.ignoredChecks = ignoredChecks
+        self.ignoredAuthors = Set(ignoredAuthors.map { $0.lowercased() })
         self.now = now
     }
 }
@@ -89,7 +93,7 @@ public enum StatusDeriver {
             primary = .conflicts
         } else if mine && review == .approved && (ci == .passing || ci == .none) && merge == .ready {
             primary = .readyToMerge
-        } else if mine && hasNewComments(pr, me: me, since: lastViewed) {
+        } else if mine && (hasNewComments(pr, me: me, since: lastViewed) || awaitsMyReply(pr, me: me, ignoring: context.ignoredAuthors)) {
             primary = .newComments
         } else if mine && merge == .behind && review == .approved {
             primary = .behindBase
@@ -219,6 +223,31 @@ public enum StatusDeriver {
             review.state == "COMMENTED" && review.author?.login.lowercased() != me && (review.submittedAt ?? .distantPast) > since
         }
         return threadActivity || commentedReview
+    }
+
+    /// Someone else's review, conversation comment, or open thread came after my last push and my last
+    /// reply. Unlike `hasNewComments`, opening the PR does not clear it.
+    static func awaitsMyReply(_ pr: PullRequest, me: String, ignoring ignored: Set<String>) -> Bool {
+        func isMe(_ login: String?) -> Bool { login?.lowercased() == me }
+        func isOther(_ login: String?) -> Bool {
+            guard let login = login?.lowercased() else { return false }
+            return login != me && !ignored.contains(login)
+        }
+        let conversation = pr.comments?.nodes ?? []
+        let reviews = pr.latestReviews.nodes
+        let threads = pr.reviewThreads.nodes.filter { $0.comments.nodes.last != nil }
+
+        var mine: [Date] = [pr.commits.nodes.first?.commit.committedDate ?? .distantPast]
+        mine += conversation.filter { isMe($0.author?.login) }.map(\.createdAt)
+        mine += reviews.filter { isMe($0.author?.login) }.compactMap(\.submittedAt)
+        mine += threads.compactMap(\.comments.nodes.last).filter { isMe($0.author?.login) }.map(\.createdAt)
+        let myLast = mine.max() ?? .distantPast
+
+        var feedback: [Date] = conversation.filter { isOther($0.author?.login) }.map(\.createdAt)
+        feedback += reviews.filter { isOther($0.author?.login) && ($0.state == "COMMENTED" || $0.state == "CHANGES_REQUESTED") }
+            .compactMap(\.submittedAt)
+        feedback += threads.filter { !$0.isResolved }.compactMap(\.comments.nodes.last).filter { isOther($0.author?.login) }.map(\.createdAt)
+        return feedback.contains { $0 > myLast }
     }
 
     static func commentMarks(_ pr: PullRequest, me: String) -> [CommentMark] {

@@ -10,6 +10,10 @@ settings:
 packages:
   ReviewKit:
     path: Packages/ReviewKit
+  # Self-update for release builds; see docs/design/self-update.md before changing the version.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.1
 targets:
   Docket:
     type: application
@@ -27,14 +31,17 @@ targets:
         product: Workspace
       - package: ReviewKit
         product: Persistence
+      - package: Sparkle
     info:
       path: Docket/Info.plist
       properties:
         CFBundleDisplayName: Docket
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: false
         LSApplicationCategoryType: public.app-category.developer-tools
+        SUFeedURL: $(DOCKET_UPDATE_FEED_URL)
+        SUPublicEDKey: $(SPARKLE_PUBLIC_KEY)
         NSAppleEventsUsageDescription: Docket opens your terminal at a repository and starts commands such as Claude Code.
     configFiles:
       Debug: Config/Signing.xcconfig
@@ -45,6 +52,13 @@ targets:
         com.apple.security.automation.apple-events: true
     settings:
       base:
+        # Release version: bump MARKETING_VERSION for each release and CURRENT_PROJECT_VERSION for every build you ship.
+        MARKETING_VERSION: "0.2.1"
+        CURRENT_PROJECT_VERSION: "3"
+        # Empty except in builds made by tools/release.sh, so source builds never start the updater.
+        DOCKET_UPDATE_FEED_URL: ""
+        # Public half of the EdDSA key that signs updates; the private half is only in the release Mac's Keychain.
+        SPARKLE_PUBLIC_KEY: s41X7lbfh6u34hTOKMGQqp1TallI38UdKCPA5wHY568=
         PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).Docket
         PRODUCT_NAME: Docket
         ENABLE_HARDENED_RUNTIME: YES

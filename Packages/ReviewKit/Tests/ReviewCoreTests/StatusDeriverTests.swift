@@ -66,6 +66,12 @@ extension PRBuilder: @unchecked Sendable {}
         Case(name: "6 ready without branch protection", builder: mine { $0.decision = nil; $0.opinionated = [("asokolov", "APPROVED", -1, "sha2")]; $0.mergeState = "CLEAN" }, expected: .readyToMerge),
         Case(name: "7 new thread comment since last viewed", builder: mine { $0.threads = [(false, "ppatel", -1)] }, lastViewed: -3, expected: .newComments),
         Case(name: "7 new commented review since last viewed", builder: mine { $0.latest = [("ppatel", "COMMENTED", -1)] }, lastViewed: -3, expected: .newComments),
+        Case(name: "7 conversation comment after my push, already opened", builder: mine { $0.conversation = [("ppatel", -1)] }, lastViewed: 0, expected: .newComments),
+        Case(name: "7 commented review after my push, already opened", builder: mine { $0.latest = [("ppatel", "COMMENTED", -1)] }, lastViewed: 0, expected: .newComments),
+        Case(name: "7 open thread reply after my push, already opened", builder: mine { $0.threads = [(false, "ppatel", -1)] }, lastViewed: 0, expected: .newComments),
+        Case(name: "10 I replied after their comment", builder: mine { $0.conversation = [("ppatel", -1.5), (me, -1)] }, lastViewed: 0, expected: .waitingForReview),
+        Case(name: "10 I pushed after their comment", builder: mine { $0.conversation = [("ppatel", -3)] }, lastViewed: 0, expected: .waitingForReview),
+        Case(name: "10 their thread after my push is resolved", builder: mine { $0.threads = [(true, "ppatel", -1)] }, lastViewed: 0, expected: .waitingForReview),
         Case(name: "my own comment is not new", builder: mine { $0.threads = [(false, me, -1)] }, lastViewed: -3, expected: .waitingForReview),
         Case(name: "comment before last viewed is not new", builder: mine { $0.threads = [(false, "ppatel", -5)] }, lastViewed: -3, expected: .waitingForReview),
         Case(name: "8 approved but behind base", builder: mine { $0.decision = "APPROVED"; $0.mergeState = "BEHIND" }, expected: .behindBase),
@@ -195,6 +201,17 @@ extension PRBuilder: @unchecked Sendable {}
             $0.contexts = (0..<CheckContext.fetchLimit).map { run("job \($0)", "SUCCESS", started: -2) }
         })
         #expect(fullPage.ci == .failing)
+    }
+
+    @Test func ignoredBotCommentsDoNotWaitOnMyReply() {
+        let builder = mine { $0.conversation = [("Lint-Bot[bot]", -1)] }
+        let viewed = [builder.id: t0]
+        func derive(ignoring bots: Set<String>) -> PrimaryState {
+            StatusDeriver.snapshot(for: builder.build(), context: DerivationContext(viewer: me, teams: [], lastViewed: viewed, ignoredAuthors: bots, now: t0),
+                                   foundByRequestSearch: false, previous: nil).primary
+        }
+        #expect(derive(ignoring: []) == .newComments)
+        #expect(derive(ignoring: ["lint-bot[bot]"]) == .waitingForReview)
     }
 
     @Test func checkLinksAreLimitedToWebURLs() {
