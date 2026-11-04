@@ -5,6 +5,8 @@ import Workspace
 /// Dense, sortable table of the current scope, grouped by repo, state, author, or not at all.
 struct PRTableView: View {
     @Environment(AppState.self) private var app
+    /// Hides the column the rows are grouped by; the section header already shows it.
+    @State private var columns = TableColumnCustomization<PRSnapshot>()
 
     /// Narrowest the table pane gets; columns scroll horizontally below their ideal widths.
     static let minimumWidth: CGFloat = 420
@@ -13,14 +15,15 @@ struct PRTableView: View {
         @Bindable var browser = app.browser
         let visible = Browse.visible(app.snapshots, scope: browser.scope, text: browser.searchText, rules: app.rules)
         let sorted = visible.sorted(using: browser.tableSort)
-        let sections = Self.sections(sorted, by: app.viewSettings.tableGrouping, sort: browser.tableSort)
+        let grouping = app.viewSettings.tableGrouping
+        let sections = Self.sections(sorted, by: grouping, sort: browser.tableSort)
             .map { PRSection(id: $0.id, title: $0.title, items: Stacks.grouped($0.items, positions: app.stacks)) }
         Group {
             if visible.isEmpty {
                 ContentUnavailableView(browser.searchText.isEmpty ? "No PRs" : "No matches", systemImage: "tablecells",
                                        description: Text(browser.searchText.isEmpty ? "Nothing in \(browser.scope.title)." : "Try repo:, author:, state:, or label: filters."))
             } else {
-                Table(of: PRSnapshot.self, selection: $browser.selection, sortOrder: $browser.tableSort) {
+                Table(of: PRSnapshot.self, selection: $browser.selection, sortOrder: $browser.tableSort, columnCustomization: $columns) {
                     TableColumn("PR", value: \.number) { pr in
                         Text("#\(pr.number)").monospacedDigit().foregroundStyle(.secondary)
                     }
@@ -42,12 +45,15 @@ struct PRTableView: View {
                     .width(min: 120, ideal: 360)
                     TableColumn("Repo", value: \.repoName) { Text($0.repoName).lineLimit(1) }
                         .width(min: 60, ideal: 130)
+                        .customizationID(TableGrouping.repo.rawValue).disabledCustomizationBehavior(.all)
                     TableColumn("Author", value: \.author) { pr in
                         Text(pr.isMine ? "you" : pr.author).lineLimit(1)
                     }
                     .width(min: 50, ideal: 110)
+                    .customizationID(TableGrouping.author.rawValue).disabledCustomizationBehavior(.all)
                     TableColumn("State", value: \.stateRank) { Chip(state: $0.primary) }
                         .width(min: 100, ideal: 140)
+                        .customizationID(TableGrouping.state.rawValue).disabledCustomizationBehavior(.all)
                     TableColumn("CI", value: \.ciRank) { Chip(ci: $0.ci, short: false) }
                         .width(min: 70, ideal: 110)
                     TableColumn("Review", value: \.reviewRank) { Text($0.review.title).foregroundStyle(.secondary) }
@@ -78,6 +84,11 @@ struct PRTableView: View {
                         }
                     }
                 }
+            }
+        }
+        .onChange(of: grouping, initial: true) { _, grouping in
+            for column in [TableGrouping.repo, .author, .state] {
+                columns[visibility: column.rawValue] = column == grouping ? .hidden : .visible
             }
         }
     }
