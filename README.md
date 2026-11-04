@@ -11,6 +11,7 @@ It answers one question: whose move is it, and on which PR?
 - **Several views.** A triage list grouped by whose move it is, a board, and a table in the main window, plus a menu bar popover, a compact always-available window, and a global quick switcher.
 - **Local workspace.** Docket finds your local clones, creates review worktrees for PRs, and opens them in your terminal or editor. It never stashes, resets, or force-pushes on its own.
 - **Claude Code sessions.** One click starts Claude Code on a PR with a prompt chosen by its state: review it, address feedback, fix failing CI, or resolve conflicts. Sessions open in a terminal (Terminal, iTerm2, or a custom command) or in the Claude desktop app.
+- **Run a PR locally.** Per-repository run profiles start a PR's checkout with your own command, such as `devspace dev` with a chosen env file, and stop it again. DevSpace projects are detected.
 - **Safer reviews of others' PRs.** Terminal review sessions cannot edit files, pin the permission mode, and post a review only after you confirm. For other people's PRs, Claude starts without the checkout's `.claude` settings, hooks, and `.mcp.json` servers.
 - **Optional review actions.** Request, re-request, or dismiss reviews from Docket. Off by default.
 - **Updates.** Release builds update themselves from GitHub Releases with Check for Updates….
@@ -158,6 +159,8 @@ Then run `xcodegen generate` again.
 2. **Point Docket at your code.** Settings > Workspace lists the folders scanned for clones (by default `~/Projects`, `~/Developer`, and `~/src`, whichever exist) and where review worktrees go.
 
 3. **Pick how Claude starts.** Settings > Claude chooses Terminal or the Claude desktop app, the terminal to use, and the prompt template for each task. Templates can use `{number}`, `{repo}`, `{url}`, `{head_ref}`, `{base_ref}`, and `{path}`. PR titles, descriptions, and comments are never inserted.
+
+4. **Optional: set up Run.** Settings > Run adds commands that start a PR's checkout, per repository. For a DevSpace project, pick the repo, click Detect, and choose an env file kept outside your clones, for example `~/env/web-console.env`; Docket passes its path in `DEVSPACE_ENV_FILE`. Choose the Kubernetes context (for example `k3d-dev`) and namespace: DevSpace profiles are refused without one, and every kubectl, helm, and DevSpace call in the run is locked to it, whatever context is current in your shell. The stop command (`devspace purge`) appears as Stop on the PR and uses the same lock.
 
 ## How Claude Code sessions work
 
