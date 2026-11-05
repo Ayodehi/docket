@@ -70,6 +70,10 @@ Board columns (built 2026-10-13): Review requested, Changes & comments, CI faili
 
 A PR whose base branch is another open PR's head branch in the same repo is stacked on it. Fork PRs are never parents. In every presentation, stack members are kept together, parent first, indented, with an "on #N" marker; the detail pane shows the whole stack and warns when a ready-to-merge PR still has an open parent. Detection uses only tracked PRs and costs no API calls.
 
+A stack can be collapsed into one row. The first row of each stack run (the stack members in one section, column, or table group) has a disclosure chevron; collapsed, the row reads "+N stacked" and the other members are folded into it. Collapse state is remembered per stack (by its root PR) and shared by List, Board, and Table. Right-click a row for Collapse Stack or Expand Stack, and use View > Collapse All Stacks or Expand All Stacks for every stack at once. Stacks start expanded.
+
+Collapsing never moves a PR out of its section, so the Inbox's urgency order holds: a run sits where its most urgent member would sort, and a stack split across "Your move" and "Waiting on others" folds separately in each, so a child that needs you stays in "Your move" even when its parent is waiting. Section and column counts include folded PRs. Arrow keys on the Board skip folded cards. Grouping and folding live in `Stacks.fold` in ReviewCore.
+
 Command-1 to Command-4 switch sidebar scopes (Inbox, My PRs, Reviewing, Snoozed). Option-Command-I toggles the inspector in Board and Table modes.
 
 The app remembers a mode **per scope**. Example: Inbox in List, a busy repo in Table, My PRs in Board. A setting sets the default mode for new scopes.

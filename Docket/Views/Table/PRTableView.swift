@@ -17,7 +17,10 @@ struct PRTableView: View {
         let sorted = visible.sorted(using: browser.tableSort)
         let grouping = app.viewSettings.tableGrouping
         let sections = Self.sections(sorted, by: grouping, sort: browser.tableSort)
-            .map { PRSection(id: $0.id, title: $0.title, items: Stacks.grouped($0.items, positions: app.stacks)) }
+        let folds = Dictionary(sections.map {
+            ($0.id, Stacks.fold($0.items, positions: app.stacks, collapsed: app.collapsedStacks))
+        }, uniquingKeysWith: { first, _ in first })
+        let followers = folds.values.reduce(into: [String: [PRSnapshot]]()) { $0.merge($1.followers) { first, _ in first } }
         Group {
             if visible.isEmpty {
                 ContentUnavailableView(browser.searchText.isEmpty ? "No PRs" : "No matches", systemImage: "tablecells",
@@ -30,6 +33,7 @@ struct PRTableView: View {
                     .width(min: 48, ideal: 60, max: 80)
                     TableColumn("Title", value: \.title) { pr in
                         HStack(spacing: 4) {
+                            if let followers = followers[pr.id] { StackToggle(pr: pr, followers: followers) }
                             if let depth = app.stacks[pr.id]?.depth, depth > 0 {
                                 Image(systemName: "arrow.turn.down.right").foregroundStyle(Tone.accent.text)
                                     .padding(.leading, CGFloat(StackIndent.level(depth) - 1) * 12)
@@ -74,7 +78,7 @@ struct PRTableView: View {
                 } rows: {
                     ForEach(sections) { section in
                         Section {
-                            ForEach(section.items) { pr in
+                            ForEach(folds[section.id]?.items ?? section.items) { pr in
                                 TableRow(pr).contextMenu { RowMenu(pr: pr) }
                             }
                         } header: {
@@ -121,6 +125,7 @@ struct RowMenu: View {
             if profile.hasStop { Button("Stop \(profile.name)") { app.stopRun(pr, profile: profile) } }
         }
         Divider()
+        StackMenuItem(pr: pr)
         SnoozeMenuItems(pr: pr)
     }
 }

@@ -25,6 +25,10 @@ struct DocketCommands: Commands {
             Button(app.viewSettings.showInspector ? "Hide Inspector" : "Show Inspector") { app.viewSettings.showInspector.toggle() }
                 .keyboardShortcut("i", modifiers: [.option, .command])
                 .disabled(app.presentation == .list)
+            Button("Collapse All Stacks") { app.collapseAllStacks() }
+                .disabled(!app.hasStacks)
+            Button("Expand All Stacks") { app.expandAllStacks() }
+                .disabled(app.collapsedStacks.isEmpty)
             Button("Compact Window") { openWindow(id: "compact") }
                 .keyboardShortcut("m", modifiers: [.shift, .command])
             Button("Worktrees") { openWindow(id: "worktrees") }

@@ -147,6 +147,10 @@ final class AppState {
     var watchedRepos: Set<String> {
         didSet { UserDefaults.standard.set(watchedRepos.sorted(), forKey: "watchedRepos") }
     }
+    /// Stacks shown as one row, by root PR ID. Shared by List, Board, and Table.
+    var collapsedStacks: Set<String> {
+        didSet { UserDefaults.standard.set(collapsedStacks.sorted(), forKey: "collapsedStacks") }
+    }
     /// Incremented to ask a view with `openWindow` to bring up the main window.
     var openMainRequest = 0
     var viewSettings: ViewSettings {
@@ -231,6 +235,7 @@ final class AppState {
         mutedRepos = Set(defaults.stringArray(forKey: "mutedRepos") ?? [])
         hiddenRepos = Set(defaults.stringArray(forKey: "hiddenRepos") ?? [])
         watchedRepos = Set(defaults.stringArray(forKey: "watchedRepos") ?? [])
+        collapsedStacks = Set(defaults.stringArray(forKey: "collapsedStacks") ?? [])
         ignoredPRPatterns = defaults.stringArray(forKey: "ignoredPRPatterns") ?? []
         reviewActionsEnabled = defaults.bool(forKey: "reviewActionsEnabled")
         workspaceSettings = SettingsStore().value(WorkspaceSettings.self, forKey: "workspaceSettings") ?? WorkspaceSettings()
@@ -541,6 +546,8 @@ final class AppState {
         lastViewed = lastViewed.filter { syncState.records[$0.key] != nil }
         snapshots = derived
         stacks = Stacks.positions(derived)
+        let liveStacks = collapsedStacks.filter { syncState.records[$0] != nil }
+        if liveStacks != collapsedStacks { collapsedStacks = liveStacks }
         loadingCount = loading
     }
 
@@ -623,6 +630,22 @@ final class AppState {
     }
 
     // MARK: Actions
+
+    /// Collapses or expands the stack a PR belongs to.
+    func toggleStack(of id: PRSnapshot.ID) {
+        guard let root = stacks[id]?.rootID else { return }
+        if collapsedStacks.contains(root) { collapsedStacks.remove(root) } else { collapsedStacks.insert(root) }
+    }
+
+    func isStackCollapsed(_ id: PRSnapshot.ID) -> Bool {
+        stacks[id].map { collapsedStacks.contains($0.rootID) } ?? false
+    }
+
+    var hasStacks: Bool { !stacks.isEmpty }
+
+    func collapseAllStacks() { collapsedStacks = Set(stacks.values.map(\.rootID)) }
+
+    func expandAllStacks() { collapsedStacks = [] }
 
     /// Records that I looked at a PR, which clears "New comments".
     func markViewed(_ id: PRSnapshot.ID) {
