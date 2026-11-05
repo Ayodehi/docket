@@ -121,7 +121,9 @@ final class QuickSwitcherModel {
 
     var prs: [PRSnapshot] {
         if query.trimmingCharacters(in: .whitespaces).isEmpty { return Array(app.inbox.prefix(8)) }
-        return app.snapshots
+        let rules = app.rules
+        let shown: [PRSnapshot] = app.snapshots.filter { rules.isShown($0) }
+        return shown
             .compactMap { pr in FuzzyMatch.score(query, pr: pr).map { (pr, $0) } }
             .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.updatedAt > $1.0.updatedAt }
             .prefix(8).map(\.0)

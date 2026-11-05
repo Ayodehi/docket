@@ -95,6 +95,7 @@ private struct GeneralSettingsView: View {
             Toggle("Launch at login", isOn: Binding(get: { app.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
             Toggle("Hide the Dock icon when the main window is closed", isOn: $app.viewSettings.hideDockIconWhenClosed)
             Toggle("Show a red dot in the menu bar when CI fails on your PR", isOn: $app.showCIFailureDot)
+            Toggle("Hide draft PRs", isOn: $app.viewSettings.hideDrafts)
             Picker("Quick switcher shortcut", selection: $app.viewSettings.switcherShortcut) {
                 ForEach(SwitcherShortcut.allCases, id: \.self) { Text($0.title).tag($0) }
             }

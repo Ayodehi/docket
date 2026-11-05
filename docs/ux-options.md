@@ -70,7 +70,7 @@ Board columns (built 2026-10-13): Review requested, Changes & comments, CI faili
 
 A PR whose base branch is another open PR's head branch in the same repo is stacked on it. Fork PRs are never parents. In every presentation, stack members are kept together, parent first, indented, with an "on #N" marker; the detail pane shows the whole stack and warns when a ready-to-merge PR still has an open parent. Detection uses only tracked PRs and costs no API calls.
 
-Command-1 to Command-4 switch sidebar scopes (Inbox, My PRs, Reviewing, Snoozed). Option-Command-I toggles the inspector in Board and Table modes.
+Command-1 to Command-4 switch sidebar scopes (Inbox, My PRs, Reviewing, Snoozed). Option-Command-I toggles the inspector in Board and Table modes. Option-Command-D (View > Hide Drafts, also in Settings > General) leaves draft PRs out of every scope, the menu bar count and popover, the Compact window, and the quick switcher. Notifications are unchanged. Revealing a hidden draft, for example from a notification, turns the setting off so the PR can be shown.
 
 The app remembers a mode **per scope**. Example: Inbox in List, a busy repo in Table, My PRs in Board. A setting sets the default mode for new scopes.
 
