@@ -71,7 +71,7 @@ Exit: daily-usable app with List and Table modes.
 - Board presentation with one column per primary state group, sharing `sectionsByState` with List mode (V8).
 - Inspector for Board, keyboard navigation between cards and columns.
 - View menu shortcuts for all three presentations.
-- Stacked PRs (V14): detect stacks from existing data (a PR whose base branch is another open PR's head branch in the same repo) and show them grouped, parent first, in List, Table, and Board, with "based on #N" in the detail.
+- Stacked PRs (V14): detect stacks from existing data (a PR whose base branch is another open PR's head branch in the same repo) and show them grouped, parent first, in List, Table, and Board, with "based on #N" in the detail. Stacks can be collapsed into one row, per stack or all at once from the View menu.
 
 Exit: v1 complete. Use daily for two weeks and measure against the success criteria.
 

@@ -88,3 +88,41 @@ public enum Stacks {
         return result
     }
 }
+
+/// A list with stacks kept together and collapsed stacks folded into their first row.
+public struct StackFold: Sendable {
+    /// Rows to show, in order.
+    public var items: [PRSnapshot]
+    /// For the first row of each stack run with more than one member: the other members of that
+    /// run, parent first, whether they are folded or shown.
+    public var followers: [String: [PRSnapshot]]
+    /// First rows whose followers are folded away (not in `items`).
+    public var collapsedHeads: Set<String>
+
+    /// Every PR in the list, folded or not.
+    public var count: Int { items.count + collapsedHeads.reduce(0) { $0 + (followers[$1]?.count ?? 0) } }
+}
+
+extension Stacks {
+    /// Groups stacks like `grouped(_:positions:)`, then folds each run of a collapsed stack into
+    /// the run's first row. `collapsed` holds stack root IDs. A run is the stack members present in
+    /// this list, so a stack split across sections folds separately in each one, and nothing moves
+    /// out of its section.
+    public static func fold(_ prs: [PRSnapshot], positions: [String: StackPosition], collapsed: Set<String>) -> StackFold {
+        var result = StackFold(items: [], followers: [:], collapsedHeads: [])
+        var head: (id: String, root: String)?
+        for pr in grouped(prs, positions: positions) {
+            if let root = positions[pr.id]?.rootID, let current = head, current.root == root {
+                result.followers[current.id, default: []].append(pr)
+                if collapsed.contains(root) {
+                    result.collapsedHeads.insert(current.id)
+                    continue
+                }
+            } else {
+                head = positions[pr.id].map { (pr.id, $0.rootID) }
+            }
+            result.items.append(pr)
+        }
+        return result
+    }
+}

@@ -448,6 +448,51 @@ extension PRBuilder: @unchecked Sendable {}
         #expect(Stacks.grouped([x, c, a], positions: positions).map(\.id) == ["X", "A", "C"])
     }
 
+    @Test func expandedStacksShowEveryRowAndMarkTheHead() {
+        let a = pr("A", number: 1, head: "a")
+        let b = pr("B", number: 2, head: "b", base: "a")
+        let x = pr("X", number: 9, head: "x")
+        let positions = Stacks.positions([a, b, x])
+        let fold = Stacks.fold([b, x, a], positions: positions, collapsed: [])
+        #expect(fold.items.map(\.id) == ["A", "B", "X"])
+        #expect(fold.followers.mapValues { $0.map(\.id) } == ["A": ["B"]])
+        #expect(fold.collapsedHeads.isEmpty)
+        #expect(fold.count == 3)
+    }
+
+    @Test func collapsedStacksFoldIntoTheirFirstRow() {
+        let a = pr("A", number: 1, head: "a")
+        let b = pr("B", number: 2, head: "b", base: "a")
+        let c = pr("C", number: 3, head: "c", base: "b")
+        let d = pr("D", number: 4, head: "d", base: "a")
+        let x = pr("X", number: 9, head: "x")
+        let y = pr("Y", number: 10, head: "y", base: "x")
+        let positions = Stacks.positions([a, b, c, d, x, y])
+        // Only A's stack is collapsed; it keeps the place of its most urgent member (C).
+        let fold = Stacks.fold([y, c, x, a, d, b], positions: positions, collapsed: ["A"])
+        #expect(fold.items.map(\.id) == ["X", "Y", "A"])
+        #expect(fold.followers["A"]?.map(\.id) == ["B", "C", "D"])
+        #expect(fold.followers["X"]?.map(\.id) == ["Y"])
+        #expect(fold.collapsedHeads == ["A"])
+        #expect(fold.count == 6)
+    }
+
+    @Test func collapsedStackSplitAcrossSectionsFoldsPerSection() {
+        let a = pr("A", number: 1, head: "a")
+        let b = pr("B", number: 2, head: "b", base: "a")
+        let c = pr("C", number: 3, head: "c", base: "b")
+        let positions = Stacks.positions([a, b, c])
+        // A is in another section: B heads this section's run, and A is never pulled in.
+        let fold = Stacks.fold([c, b], positions: positions, collapsed: ["A"])
+        #expect(fold.items.map(\.id) == ["B"])
+        #expect(fold.followers["B"]?.map(\.id) == ["C"])
+        // A lone member has nothing to fold.
+        let lone = Stacks.fold([a], positions: positions, collapsed: ["A"])
+        #expect(lone.items.map(\.id) == ["A"])
+        #expect(lone.followers.isEmpty)
+        #expect(lone.collapsedHeads.isEmpty)
+    }
+
     @Test func boardKeyboardMoves() {
         let columns = [
             PRSection(id: "a", title: "A", items: [pr("A1", number: 1, head: "a1"), pr("A2", number: 2, head: "a2"), pr("A3", number: 3, head: "a3")]),

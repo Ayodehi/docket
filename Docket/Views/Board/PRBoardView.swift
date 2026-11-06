@@ -11,14 +11,18 @@ struct PRBoardView: View {
 
     var body: some View {
         let visible = Browse.visible(app.snapshots, scope: app.browser.scope, text: app.browser.searchText, rules: app.rules)
-        let columns = Browse.boardColumns(visible).map { column in
-            PRSection(id: column.id, title: column.title, items: Stacks.grouped(column.items, positions: app.stacks))
+        let folds = Browse.boardColumns(visible).map { column in
+            (column, Stacks.fold(column.items, positions: app.stacks, collapsed: app.collapsedStacks))
         }
+        // Columns hold the cards shown, so arrow keys skip folded PRs.
+        let columns = folds.map { PRSection(id: $0.0.id, title: $0.0.title, items: $0.1.items) }
+        let followers = folds.reduce(into: [String: [PRSnapshot]]()) { $0.merge($1.1.followers) { first, _ in first } }
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(columns) { column in
-                        BoardColumn(column: column, tone: Self.tone(column.id))
+                        BoardColumn(column: column, total: folds.first { $0.0.id == column.id }?.1.count ?? column.items.count,
+                                    followers: followers, tone: Self.tone(column.id))
                             .frame(width: Self.columnWidth)
                     }
                 }
@@ -65,6 +69,9 @@ struct PRBoardView: View {
 private struct BoardColumn: View {
     @Environment(AppState.self) private var app
     let column: PRSection
+    /// PRs in the column, counting those folded into a collapsed stack.
+    let total: Int
+    let followers: [String: [PRSnapshot]]
     let tone: Tone
 
     var body: some View {
@@ -73,7 +80,7 @@ private struct BoardColumn: View {
                 RoundedRectangle(cornerRadius: 1.5).fill(tone.base).frame(width: 3, height: 12)
                 Text(column.title).font(.callout.weight(.semibold))
                 Spacer()
-                Text("\(column.items.count)").font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                Text("\(total)").font(.callout).monospacedDigit().foregroundStyle(.secondary)
             }
             .padding(.horizontal, 2)
             ScrollView {
@@ -83,7 +90,8 @@ private struct BoardColumn: View {
                             .frame(maxWidth: .infinity, alignment: .leading).padding(4)
                     }
                     ForEach(column.items) { pr in
-                        BoardCard(pr: pr, selected: app.browser.selection == pr.id, showsState: column.id == "waiting")
+                        BoardCard(pr: pr, selected: app.browser.selection == pr.id, showsState: column.id == "waiting",
+                                  followers: followers[pr.id] ?? [])
                             .id(pr.id)
                             .onTapGesture { app.browser.selection = pr.id }
                             .contextMenu { RowMenu(pr: pr) }
@@ -96,7 +104,7 @@ private struct BoardColumn: View {
         .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.separator))
         .opacity(column.id == "waiting" ? 0.85 : 1)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(column.title), \(column.items.count)")
+        .accessibilityLabel("\(column.title), \(total)")
     }
 }
 
@@ -105,11 +113,13 @@ private struct BoardCard: View {
     let pr: PRSnapshot
     let selected: Bool
     let showsState: Bool
+    var followers: [PRSnapshot] = []
 
     var body: some View {
         let stack = app.stacks[pr.id]
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
+                if !followers.isEmpty { StackToggle(pr: pr, followers: followers) }
                 if let stack, let parent = stack.parentID.flatMap(app.snapshot(id:)) {
                     Image(systemName: "arrow.turn.down.right").imageScale(.small).foregroundStyle(Tone.accent.text)
                         .help("Based on #\(parent.number)")

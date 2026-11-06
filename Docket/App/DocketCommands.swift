@@ -27,6 +27,10 @@ struct DocketCommands: Commands {
                 .disabled(app.presentation == .list)
             Button(app.viewSettings.hideDrafts ? "Show Drafts" : "Hide Drafts") { app.viewSettings.hideDrafts.toggle() }
                 .keyboardShortcut("d", modifiers: [.option, .command])
+            Button("Collapse All Stacks") { app.collapseAllStacks() }
+                .disabled(!app.hasStacks)
+            Button("Expand All Stacks") { app.expandAllStacks() }
+                .disabled(app.collapsedStacks.isEmpty)
             Button("Compact Window") { openWindow(id: "compact") }
                 .keyboardShortcut("m", modifiers: [.shift, .command])
             Button("Worktrees") { openWindow(id: "worktrees") }

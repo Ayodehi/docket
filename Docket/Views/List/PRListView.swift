@@ -15,10 +15,15 @@ struct PRListView: View {
                 List(selection: $browser.selection) {
                     ForEach(sections) { section in
                         Section {
-                            ForEach(Stacks.grouped(section.items, positions: app.stacks)) { pr in
+                            let fold = Stacks.fold(section.items, positions: app.stacks, collapsed: app.collapsedStacks)
+                            ForEach(fold.items) { pr in
                                 PRRow(pr: pr, isSnoozed: app.snoozed.contains(pr.id), stack: app.stacks[pr.id],
-                                      parentNumber: app.stacks[pr.id]?.parentID.flatMap(app.snapshot(id:))?.number).tag(pr.id)
-                                    .contextMenu { SnoozeMenuItems(pr: pr) }
+                                      parentNumber: app.stacks[pr.id]?.parentID.flatMap(app.snapshot(id:))?.number,
+                                      followers: fold.followers[pr.id] ?? []).tag(pr.id)
+                                    .contextMenu {
+                                        StackMenuItem(pr: pr)
+                                        SnoozeMenuItems(pr: pr)
+                                    }
                             }
                         } header: {
                             HStack {
@@ -77,10 +82,13 @@ struct PRRow: View {
     var isSnoozed = false
     var stack: StackPosition?
     var parentNumber: Int?
+    /// Set on the first row of a stack run: the other members, for the collapse toggle.
+    var followers: [PRSnapshot] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                if !followers.isEmpty { StackToggle(pr: pr, followers: followers) }
                 Chip(state: pr.primary)
                 if isSnoozed {
                     Image(systemName: "moon.fill").foregroundStyle(.secondary).help("Snoozed").accessibilityLabel("Snoozed")
