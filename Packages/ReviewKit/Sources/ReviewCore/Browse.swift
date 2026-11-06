@@ -48,14 +48,22 @@ public struct InboxRules: Sendable, Equatable {
     public var snoozed: Set<String>
     /// Authored PRs not updated since this date stay out of the Inbox. Review requests always count.
     public var authoredCutoff: Date?
+    /// Leaves draft PRs out of every scope, the Inbox, and its count.
+    public var hideDrafts: Bool
 
-    public init(snoozed: Set<String> = [], authoredCutoff: Date? = nil) {
+    public init(snoozed: Set<String> = [], authoredCutoff: Date? = nil, hideDrafts: Bool = false) {
         self.snoozed = snoozed
         self.authoredCutoff = authoredCutoff
+        self.hideDrafts = hideDrafts
+    }
+
+    /// False for PRs these rules leave out of every list.
+    public func isShown(_ pr: PRSnapshot) -> Bool {
+        !(hideDrafts && pr.isDraft)
     }
 
     public func isInInbox(_ pr: PRSnapshot) -> Bool {
-        guard pr.primary.isMyMove, !snoozed.contains(pr.id) else { return false }
+        guard isShown(pr), pr.primary.isMyMove, !snoozed.contains(pr.id) else { return false }
         if pr.primary == .reviewRequested || pr.primary == .reReviewRequested { return true }
         return pr.updatedAt >= (authoredCutoff ?? .distantPast)
     }
@@ -63,6 +71,7 @@ public struct InboxRules: Sendable, Equatable {
 
 public enum Browse {
     public static func inScope(_ pr: PRSnapshot, _ scope: Scope, rules: InboxRules) -> Bool {
+        guard rules.isShown(pr) else { return false }
         let snoozed = rules.snoozed
         return switch scope {
         case .inbox: rules.isInInbox(pr)

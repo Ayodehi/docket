@@ -69,6 +69,8 @@ struct ViewSettings: Codable, Equatable {
     var compactKeepOnTop = true
     var hideDockIconWhenClosed = false
     var switcherShortcut: SwitcherShortcut = .controlOptionSpace
+    /// Leaves draft PRs out of the main window, menu bar, Compact window, and quick switcher.
+    var hideDrafts = false
 
     init() {}
 
@@ -82,6 +84,7 @@ struct ViewSettings: Codable, Equatable {
         compactKeepOnTop = try c.decodeIfPresent(Bool.self, forKey: .compactKeepOnTop) ?? d.compactKeepOnTop
         hideDockIconWhenClosed = try c.decodeIfPresent(Bool.self, forKey: .hideDockIconWhenClosed) ?? d.hideDockIconWhenClosed
         switcherShortcut = try c.decodeIfPresent(SwitcherShortcut.self, forKey: .switcherShortcut) ?? d.switcherShortcut
+        hideDrafts = try c.decodeIfPresent(Bool.self, forKey: .hideDrafts) ?? d.hideDrafts
     }
 }
 
@@ -242,7 +245,7 @@ final class AppState {
 
     var rules: InboxRules {
         let cutoff = inboxMaxAgeDays > 0 ? Calendar.current.date(byAdding: .day, value: -inboxMaxAgeDays, to: Date()) : nil
-        return InboxRules(snoozed: snoozed, authoredCutoff: cutoff)
+        return InboxRules(snoozed: snoozed, authoredCutoff: cutoff, hideDrafts: viewSettings.hideDrafts)
     }
 
     var inbox: [PRSnapshot] {
@@ -262,7 +265,8 @@ final class AppState {
     }
 
     var repos: [(name: String, count: Int)] {
-        Dictionary(grouping: snapshots, by: \.repo).map { ($0.key, $0.value.count) }.sorted { $0.name.lowercased() < $1.name.lowercased() }
+        let rules = rules
+        return Dictionary(grouping: snapshots.filter(rules.isShown), by: \.repo).map { ($0.key, $0.value.count) }.sorted { $0.name.lowercased() < $1.name.lowercased() }
     }
 
     func snapshot(id: PRSnapshot.ID?) -> PRSnapshot? {
@@ -271,7 +275,8 @@ final class AppState {
     }
 
     func count(_ scope: Scope) -> Int {
-        snapshots.filter { Browse.inScope($0, scope, rules: rules) }.count
+        let rules = rules
+        return snapshots.filter { Browse.inScope($0, scope, rules: rules) }.count
     }
 
     // MARK: Session
@@ -633,7 +638,9 @@ final class AppState {
     }
 
     /// Shows a PR in the main window, switching to the Inbox if the current scope does not include it.
+    /// Shows drafts again when the PR is a hidden draft, since the user asked for this PR.
     func reveal(_ id: PRSnapshot.ID) {
+        if let pr = snapshot(id: id), !rules.isShown(pr) { viewSettings.hideDrafts = false }
         if let pr = snapshot(id: id), !Browse.inScope(pr, browser.scope, rules: rules) {
             browser.scope = rules.isInInbox(pr) ? .inbox : .repo(pr.repo)
         }
