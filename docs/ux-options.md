@@ -74,7 +74,7 @@ A stack can be collapsed into one row. The first row of each stack run (the stac
 
 Collapsing never moves a PR out of its section, so the Inbox's urgency order holds: a run sits where its most urgent member would sort, and a stack split across "Your move" and "Waiting on others" folds separately in each, so a child that needs you stays in "Your move" even when its parent is waiting. Section and column counts include folded PRs. Arrow keys on the Board skip folded cards. Grouping and folding live in `Stacks.fold` in ReviewCore.
 
-Command-1 to Command-4 switch sidebar scopes (Inbox, My PRs, Reviewing, Snoozed). Option-Command-I toggles the inspector in Board and Table modes.
+Command-1 to Command-4 switch sidebar scopes (Inbox, My PRs, Reviewing, Snoozed). Option-Command-I toggles the inspector in Board and Table modes. Option-Command-D (View > Hide Drafts, also in Settings > General) leaves draft PRs out of every scope, the menu bar count and popover, the Compact window, and the quick switcher. Notifications are unchanged. Revealing a hidden draft, for example from a notification, turns the setting off so the PR can be shown.
 
 The app remembers a mode **per scope**. Example: Inbox in List, a busy repo in Table, My PRs in Board. A setting sets the default mode for new scopes.
 

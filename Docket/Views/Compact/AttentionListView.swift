@@ -33,8 +33,8 @@ struct AttentionListView: View {
     private var items: [PRSnapshot] {
         switch tab {
         case .move: app.inbox
-        case .mine: Browse.sectionsByMove(app.snapshots.filter(\.isMine)).flatMap(\.items)
-        case .reviews: Browse.sectionsByMove(Browse.visible(app.snapshots, scope: .reviewing, text: "", rules: InboxRules())).flatMap(\.items)
+        case .mine: Browse.sectionsByMove(Browse.visible(app.snapshots, scope: .mine, text: "", rules: app.rules)).flatMap(\.items)
+        case .reviews: Browse.sectionsByMove(Browse.visible(app.snapshots, scope: .reviewing, text: "", rules: app.rules)).flatMap(\.items)
         }
     }
 

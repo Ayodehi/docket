@@ -268,6 +268,21 @@ extension PRBuilder: @unchecked Sendable {}
         #expect(Browse.visible(all, scope: .repo("example-org/cli"), text: "", rules: InboxRules()).isEmpty)
     }
 
+    @Test func hideDraftsLeavesDraftsOutOfEveryScope() {
+        let draftRequest = snapshot("DR", theirs { $0.requestedUsers = [me]; $0.draft = true })
+        let myDraft = snapshot("D", mine { $0.draft = true })
+        let request = snapshot("R", theirs { $0.requestedUsers = [me] })
+        let all = [draftRequest, myDraft, request]
+        let hide = InboxRules(snoozed: ["DR"], hideDrafts: true)
+        #expect(Browse.visible(all, scope: .inbox, text: "", rules: InboxRules()).map(\.id).sorted() == ["DR", "R"])
+        #expect(Browse.visible(all, scope: .inbox, text: "", rules: InboxRules(hideDrafts: true)).map(\.id) == ["R"])
+        #expect(Browse.visible(all, scope: .mine, text: "", rules: hide).isEmpty)
+        #expect(Browse.visible(all, scope: .reviewing, text: "", rules: hide).map(\.id) == ["R"])
+        #expect(Browse.visible(all, scope: .snoozed, text: "", rules: hide).isEmpty)
+        #expect(Browse.visible(all, scope: .repo("example-org/web-console"), text: "", rules: hide).map(\.id) == ["R"])
+        #expect(!hide.isShown(myDraft) && hide.isShown(request))
+    }
+
     @Test func inboxAgeCutoffAppliesToAuthoredOnly() {
         let oldRequest = snapshot("R", theirs { $0.requestedUsers = [me]; $0.updated = -24 * 200 })
         let oldFailing = snapshot("F", mine { $0.rollup = "FAILURE"; $0.updated = -24 * 200 })
