@@ -135,6 +135,11 @@ private func kinds(_ old: PRSnapshot?, _ new: PRSnapshot, now: Date = t0) -> [Ev
     @Test func bots() {
         let botApproval = PREvent(kind: .approved, pr: ciFailure.pr, actors: ["Dependabot[bot]"])
         #expect(EventFilter.reason(botApproval, context: context(), ledger: NotificationLedger()) == .bot)
+        // GraphQL logins drop the [bot] suffix.
+        let graphQLApproval = PREvent(kind: .approved, pr: ciFailure.pr, actors: ["dependabot"])
+        #expect(EventFilter.reason(graphQLApproval, context: context(), ledger: NotificationLedger()) == .bot)
+        let botComment = PREvent(kind: .newComment, pr: ciFailure.pr, actors: ["dependabot"], count: 1, marks: [CommentMark(author: "dependabot", at: t0)])
+        #expect(EventFilter.withoutBotComments(botComment, context: context()) == nil)
         // A bot's PR that requests my review directly still notifies; through a team it does not.
         let direct = PREvent(kind: .reviewRequested, pr: snap(pr { $0.author = "dependabot[bot]"; $0.requestedUsers = [me] }))
         #expect(EventFilter.reason(direct, context: context(), ledger: NotificationLedger()) == nil)

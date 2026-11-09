@@ -10,7 +10,8 @@ public struct DerivationContext: Sendable {
     public var lastViewed: [String: Date]
     /// Check name patterns (case-insensitive substring) to leave out of the CI status.
     public var ignoredChecks: [String]
-    /// Logins (bots) whose comments never wait on my reply.
+    /// Logins (bots) whose comments and reviews are not new comments and never wait on my reply.
+    /// Normalized with `Login.key`.
     public var ignoredAuthors: Set<String>
     public var now: Date
 
@@ -20,7 +21,7 @@ public struct DerivationContext: Sendable {
         self.teams = teams
         self.lastViewed = lastViewed
         self.ignoredChecks = ignoredChecks
-        self.ignoredAuthors = Set(ignoredAuthors.map { $0.lowercased() })
+        self.ignoredAuthors = Login.keys(ignoredAuthors)
         self.now = now
     }
 }
@@ -93,7 +94,7 @@ public enum StatusDeriver {
             primary = .conflicts
         } else if mine && review == .approved && (ci == .passing || ci == .none) && merge == .ready {
             primary = .readyToMerge
-        } else if mine && (hasNewComments(pr, me: me, since: lastViewed) || awaitsMyReply(pr, me: me, ignoring: context.ignoredAuthors)) {
+        } else if mine && (hasNewComments(pr, me: me, since: lastViewed, ignoring: context.ignoredAuthors) || awaitsMyReply(pr, me: me, ignoring: context.ignoredAuthors)) {
             primary = .newComments
         } else if mine && merge == .behind && review == .approved {
             primary = .behindBase
@@ -148,7 +149,7 @@ public enum StatusDeriver {
             reviewers: reviewers(pr),
             merge: merge,
             unresolvedThreads: pr.reviewThreads.nodes.filter { !$0.isResolved }.count,
-            commentMarks: commentMarks(pr, me: me),
+            commentMarks: commentMarks(pr, me: me, ignoring: context.ignoredAuthors),
             primary: primary,
             stateEnteredAt: enteredAt
         )
@@ -213,14 +214,19 @@ public enum StatusDeriver {
         }
     }
 
-    /// A review thread whose last comment, or a Commented review, by someone else after `since`.
-    static func hasNewComments(_ pr: PullRequest, me: String, since: Date) -> Bool {
+    /// A review thread whose last comment, or a Commented review, by someone other than me or an
+    /// ignored author after `since`.
+    static func hasNewComments(_ pr: PullRequest, me: String, since: Date, ignoring ignored: Set<String> = []) -> Bool {
+        func counts(_ login: String?) -> Bool {
+            guard let login else { return true }
+            return login.lowercased() != me && !ignored.contains(Login.key(login))
+        }
         let threadActivity = pr.reviewThreads.nodes.contains { thread in
             guard let last = thread.comments.nodes.last else { return false }
-            return last.author?.login.lowercased() != me && last.createdAt > since
+            return counts(last.author?.login) && last.createdAt > since
         }
         let commentedReview = pr.latestReviews.nodes.contains { review in
-            review.state == "COMMENTED" && review.author?.login.lowercased() != me && (review.submittedAt ?? .distantPast) > since
+            review.state == "COMMENTED" && counts(review.author?.login) && (review.submittedAt ?? .distantPast) > since
         }
         return threadActivity || commentedReview
     }
@@ -230,8 +236,8 @@ public enum StatusDeriver {
     static func awaitsMyReply(_ pr: PullRequest, me: String, ignoring ignored: Set<String>) -> Bool {
         func isMe(_ login: String?) -> Bool { login?.lowercased() == me }
         func isOther(_ login: String?) -> Bool {
-            guard let login = login?.lowercased() else { return false }
-            return login != me && !ignored.contains(login)
+            guard let login else { return false }
+            return login.lowercased() != me && !ignored.contains(Login.key(login))
         }
         let conversation = pr.comments?.nodes ?? []
         let reviews = pr.latestReviews.nodes
@@ -250,7 +256,7 @@ public enum StatusDeriver {
         return feedback.contains { $0 > myLast }
     }
 
-    static func commentMarks(_ pr: PullRequest, me: String) -> [CommentMark] {
+    static func commentMarks(_ pr: PullRequest, me: String, ignoring ignored: Set<String> = []) -> [CommentMark] {
         let threadMarks = pr.reviewThreads.nodes.compactMap { thread -> CommentMark? in
             guard let last = thread.comments.nodes.last, let login = last.author?.login else { return nil }
             return CommentMark(author: login, at: last.createdAt)
@@ -260,7 +266,7 @@ public enum StatusDeriver {
             return CommentMark(author: login, at: at)
         }
         return (threadMarks + reviewMarks)
-            .filter { $0.author.lowercased() != me }
+            .filter { $0.author.lowercased() != me && !ignored.contains(Login.key($0.author)) }
             .sorted { $0.at > $1.at }
             .prefix(30)
             .map { $0 }

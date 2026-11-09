@@ -139,6 +139,9 @@ private func spec(_ alias: SearchAlias, _ tier: Tier) -> SearchSpec {
         #expect(rules.matches(title: "[Snyk] Security upgrade axios", author: "you"))
         #expect(rules.matches(title: "[snyk] lowercase too", author: "you"))
         #expect(rules.matches(title: "Bump lodash from 4.17.20 to 4.17.21", author: "Dependabot[bot]"))
+        // GraphQL reports the same bot as "dependabot".
+        #expect(rules.matches(title: "Bump lodash", author: "dependabot"))
+        #expect(IgnoreRules(["author:claude"]).matches(title: "x", author: "claude[bot]"))
         #expect(!rules.matches(title: "Fix snyk config", author: "you"))
         #expect(!rules.matches(title: "Bump x", author: "dependabot-fan"))
         #expect(!IgnoreRules(["  "]).matches(title: "anything", author: "x"))

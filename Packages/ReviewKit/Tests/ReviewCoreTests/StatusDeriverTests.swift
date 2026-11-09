@@ -214,6 +214,34 @@ extension PRBuilder: @unchecked Sendable {}
         #expect(derive(ignoring: ["lint-bot[bot]"]) == .waitingForReview)
     }
 
+    /// GraphQL reports a bot as `claude`; the list says `claude[bot]`. Its review after I last
+    /// viewed the PR is not a new comment, and leaves no comment mark.
+    @Test func ignoredBotReviewIsNotANewComment() {
+        let builder = mine { $0.latest = [("claude", "COMMENTED", -1)] }
+        let viewed = [builder.id: at(-2)]
+        func derive(ignoring bots: Set<String>) -> PRSnapshot {
+            StatusDeriver.snapshot(for: builder.build(), context: DerivationContext(viewer: me, teams: [], lastViewed: viewed, ignoredAuthors: bots, now: t0),
+                                   foundByRequestSearch: false, previous: nil)
+        }
+        #expect(derive(ignoring: []).primary == .newComments)
+        #expect(derive(ignoring: []).commentMarks.map(\.author) == ["claude"])
+        let ignored = derive(ignoring: ["Claude[bot]"])
+        #expect(ignored.primary == .waitingForReview)
+        #expect(ignored.commentMarks.isEmpty)
+        // A person's thread reply alongside it still counts.
+        let mixed = mine { $0.latest = [("claude", "COMMENTED", -1)]; $0.threads = [(false, "ppatel", -1)] }
+        let withPerson = StatusDeriver.snapshot(for: mixed.build(), context: DerivationContext(viewer: me, teams: [], lastViewed: [mixed.id: at(-2)],
+                                                ignoredAuthors: ["claude[bot]"], now: t0), foundByRequestSearch: false, previous: nil)
+        #expect(withPerson.primary == .newComments)
+        #expect(withPerson.commentMarks.map(\.author) == ["ppatel"])
+    }
+
+    @Test func loginKeysIgnoreCaseAndBotSuffix() {
+        #expect(Login.key(" Claude[bot] ") == "claude")
+        #expect(Login.key("claude") == "claude")
+        #expect(Login.keys(["dependabot[bot]", "Dependabot", " "]) == ["dependabot"])
+    }
+
     @Test func checkLinksAreLimitedToWebURLs() {
         #expect(StatusDeriver.webURL("https://ci.example.com/run/1")?.host() == "ci.example.com")
         #expect(StatusDeriver.webURL("http://ci.example.com/run/1") != nil)

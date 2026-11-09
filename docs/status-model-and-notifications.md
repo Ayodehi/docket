@@ -84,7 +84,7 @@ Every open PR gets exactly one primary state. Evaluate top to bottom; the first 
 | 4 | CI failing | Mine, CI Failing, not draft | Me | Yes | High |
 | 5 | Conflicts | Mine, merge readiness Conflicts | Me | Yes | Medium |
 | 6 | Ready to merge | Mine, Approved, CI Passing or None, merge readiness Ready | Me | Yes | Medium |
-| 7 | New comments | Mine, and either new review comments or a Commented review since I last opened the PR in the app, or someone else's Commented or Changes requested review, conversation comment, or unresolved thread reply came after my last push and my last reply (review, conversation comment, or thread reply). The second part stays until I push or reply; ignored bots (Settings > Notifications) do not count. (Widened 2026-11-02 so a follow-up conversation comment is not lost behind Waiting for review.) | Me | Yes | Medium |
+| 7 | New comments | Mine, and either new review comments or a Commented review, by anyone other than me or an ignored bot, since I last opened the PR in the app, or someone else's Commented or Changes requested review, conversation comment, or unresolved thread reply came after my last push and my last reply (review, conversation comment, or thread reply). The second part stays until I push or reply; ignored bots (Settings > Notifications) do not count. (Widened 2026-11-02 so a follow-up conversation comment is not lost behind Waiting for review.) | Me | Yes | Medium |
 | 8 | Behind base | Mine, merge readiness Behind base, otherwise approved | Me | Yes | Low |
 | 9 | Draft | Mine, draft | Me (when ready) | No | None |
 | 10 | Waiting for review | Mine, Review required, CI Passing or Running | Others | No | None |
@@ -136,7 +136,7 @@ A computed event is dropped when any of these is true:
 - The PR is seen for the first time and is not a review request, unless I opened it within the last 24 hours. This covers PRs that appear late (an unhidden repo, detail arriving over several cycles) so they do not announce old state.
 - The change came from a setting (ignored checks, marking a PR viewed) rather than from GitHub. Those changes move the baseline without notifying.
 
-Comments from ignored bots are removed from `newComment` events before counting; an event left with no comments is dropped. Hidden repos are never synced, so they produce no events.
+Logins in the ignored bots list match with or without a `[bot]` suffix, because GitHub's GraphQL API reports a bot as `claude` where REST and the web UI show `claude[bot]`. The same applies to `author:` rules for ignored PRs. Comments from ignored bots are removed from `newComment` events and from comment marks before counting; an event left with no comments is dropped. Hidden repos are never synced, so they produce no events.
 
 ### 4.2 Coalescing and notification style
 
