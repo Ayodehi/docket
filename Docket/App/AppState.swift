@@ -121,7 +121,7 @@ final class AppState {
     var notificationSettings: NotificationSettings {
         didSet {
             settingsStore.set(notificationSettings, forKey: "notificationSettings")
-            // Ignored bots also decide which comments wait on my reply.
+            // Ignored bots also decide which comments count as new and which wait on my reply.
             if notificationSettings.ignoredBots != oldValue.ignoredBots {
                 rederive()
                 rebaseline()

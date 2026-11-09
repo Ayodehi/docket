@@ -1,4 +1,5 @@
 import Foundation
+import GitHubKit
 
 /// A snoozed PR. Ends at `until`, or when the PR changes if `fingerprint` is set.
 public struct Snooze: Codable, Sendable, Hashable {
@@ -45,6 +46,7 @@ public struct NotificationLedger: Codable, Sendable {
 
 public struct SuppressionContext: Sendable {
     public var enabled: Set<EventKind>
+    /// Ignored logins, normalized with `Login.key`.
     public var ignoredBots: Set<String>
     public var snoozed: Set<String>
     public var mutedRepos: Set<String>
@@ -52,9 +54,11 @@ public struct SuppressionContext: Sendable {
     /// My PRs not updated since this date do not notify, matching the Inbox age rule.
     public var authoredCutoff: Date?
 
+    public func isIgnored(_ login: String) -> Bool { ignoredBots.contains(Login.key(login)) }
+
     public init(enabled: Set<EventKind>, ignoredBots: Set<String>, snoozed: Set<String>, mutedRepos: Set<String>, paused: Bool, authoredCutoff: Date?) {
         self.enabled = enabled
-        self.ignoredBots = Set(ignoredBots.map { $0.lowercased() })
+        self.ignoredBots = Login.keys(ignoredBots)
         self.snoozed = snoozed
         self.mutedRepos = mutedRepos
         self.paused = paused
@@ -76,8 +80,8 @@ public enum EventFilter {
         if context.mutedRepos.contains(pr.repo) { return .muted }
         let directlyRequested = pr.roles.contains(.requestedReviewer)
         if event.kind.isRequest {
-            if !directlyRequested && context.ignoredBots.contains(pr.author.lowercased()) { return .bot }
-        } else if !event.actors.isEmpty && event.actors.allSatisfy({ context.ignoredBots.contains($0.lowercased()) }) {
+            if !directlyRequested && context.isIgnored(pr.author) { return .bot }
+        } else if !event.actors.isEmpty && event.actors.allSatisfy(context.isIgnored) {
             return .bot
         }
         if pr.isDraft && event.kind != .reviewRequested { return .draft }
@@ -91,8 +95,8 @@ public enum EventFilter {
     public static func withoutBotComments(_ event: PREvent, context: SuppressionContext) -> PREvent? {
         guard event.kind == .newComment else { return event }
         var copy = event
-        copy.marks = event.marks.filter { !context.ignoredBots.contains($0.author.lowercased()) }
-        copy.actors = event.actors.filter { !context.ignoredBots.contains($0.lowercased()) }
+        copy.marks = event.marks.filter { !context.isIgnored($0.author) }
+        copy.actors = event.actors.filter { !context.isIgnored($0) }
         copy.count = copy.marks.count
         return copy.marks.isEmpty ? nil : copy
     }

@@ -275,11 +275,11 @@ private struct NotificationSettingsView: View {
                 }
             }
             Section {
-                StringListEditor(items: $app.notificationSettings.ignoredBots, placeholder: "Bot login, for example dependabot[bot]")
+                StringListEditor(items: $app.notificationSettings.ignoredBots, placeholder: "Login, for example claude[bot]")
             } header: {
                 Text("Ignored bots")
             } footer: {
-                Text("Comments, reviews, and requests from these accounts do not notify, unless they request your review directly.")
+                Text("Comments and reviews from these accounts never count as new comments or wait on your reply, and their activity does not notify unless they request your review directly. The [bot] suffix is optional.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -555,7 +555,7 @@ private struct IgnoredPRsSection: View {
         } header: {
             Text("Ignored PRs")
         } footer: {
-            Text("Applies to every repo. Plain text matches anywhere in the title, ignoring case, so [Snyk] catches Snyk PRs opened under your account. author:login matches the PR author. Ignored PRs are not fetched, shown, counted, or notified." + (app.ignoredPRCount > 0 ? " Currently ignoring \(app.ignoredPRCount)." : ""))
+            Text("Applies to every repo. Plain text matches anywhere in the title, ignoring case, so [Snyk] catches Snyk PRs opened under your account. author:login matches the PR author; a bot's [bot] suffix is optional. Ignored PRs are not fetched, shown, counted, or notified." + (app.ignoredPRCount > 0 ? " Currently ignoring \(app.ignoredPRCount)." : ""))
                 .foregroundStyle(.secondary)
         }
     }
