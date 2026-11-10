@@ -8,7 +8,7 @@ struct WorktreesView: View {
         case all = "All", noOpenPR = "No open PR", changes = "Has changes"
     }
 
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @State private var filter: Filter = .all
     @State private var selection = Set<WorktreeRow.ID>()
     @State private var sortOrder = [KeyPathComparator(\WorktreeRow.sortModified, order: .reverse)]

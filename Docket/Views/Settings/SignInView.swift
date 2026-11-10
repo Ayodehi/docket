@@ -2,7 +2,7 @@ import GitHubKit
 import SwiftUI
 
 struct SignInView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @State private var token = ""
     @State private var busy = false
     @State private var error: String?

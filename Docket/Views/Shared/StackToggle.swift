@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Disclosure on the first row of a stack run. Collapsed, it also says how many PRs are folded in.
 struct StackToggle: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
     /// The other members of this run.
     let followers: [PRSnapshot]
@@ -31,7 +31,7 @@ struct StackToggle: View {
 
 /// Context menu item for the stack a PR belongs to.
 struct StackMenuItem: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
 
     var body: some View {

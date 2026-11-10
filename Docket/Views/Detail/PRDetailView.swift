@@ -4,7 +4,7 @@ import SwiftUI
 import Workspace
 
 struct PRDetailView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
     @State private var requestingReviewers = false
     @State private var dismissing: ReviewerState?
@@ -225,7 +225,7 @@ struct PRDetailView: View {
 
 /// One place Claude can work, with every task plus an empty session.
 private struct ClaudeLocationMenu: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
     let location: WorkLocation
     let title: String
@@ -246,7 +246,7 @@ private struct ClaudeLocationMenu: View {
 
 /// Every task, plus an empty session, in the Claude app that is not the default.
 private struct ClaudeAppMenu: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
     let claudeApp: ClaudeApp
 
@@ -306,7 +306,7 @@ struct PanelRow<Content: View>: View {
 
 /// Local clone status and workspace actions.
 private struct LocalPanel: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     let pr: PRSnapshot
@@ -410,7 +410,7 @@ extension View {
 
 /// The PR's stack, parent first, with each member's state. Clicking a member selects it.
 private struct StackPanel: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
     let stack: StackPosition
 
@@ -446,7 +446,7 @@ private struct StackPanel: View {
 
 /// Starts or stops the repo's run profiles. Hidden until the repo has one.
 struct RunMenu: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.openSettings) private var openSettings
     let pr: PRSnapshot
 

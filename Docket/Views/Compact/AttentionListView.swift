@@ -6,7 +6,7 @@ import Workspace
 struct AttentionListView: View {
     enum Tab: String, CaseIterable { case move = "Your move", mine = "Mine", reviews = "Reviews" }
 
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @State private var tab: Tab = .move
@@ -172,7 +172,7 @@ private struct SurfaceFrame: ViewModifier {
 }
 
 private struct AttentionRow: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
     let open: () -> Void
 

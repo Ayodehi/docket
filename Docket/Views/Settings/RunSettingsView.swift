@@ -4,7 +4,7 @@ import Workspace
 
 /// Settings > Run: per-repo commands that start and stop a PR's checkout.
 struct RunSettingsView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @State private var repo = ""
     @State private var selected: UUID?
     @State private var detectNote: String?
@@ -122,7 +122,7 @@ struct RunSettingsView: View {
 }
 
 private struct ProfileEditor: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Binding var profile: RunProfile
     @State private var contexts: [String] = []
 

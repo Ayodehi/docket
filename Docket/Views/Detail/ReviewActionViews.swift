@@ -17,7 +17,7 @@ private struct ActionTarget: View {
 
 /// Picks reviewers to add. Existing requests stay (the request always adds).
 struct RequestReviewersSheet: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.dismiss) private var dismiss
     let pr: PRSnapshot
 
@@ -152,7 +152,7 @@ struct RequestReviewersSheet: View {
 
 /// Dismisses one reviewer's approval or change request, with a reason the user types.
 struct DismissReviewSheet: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.dismiss) private var dismiss
     let pr: PRSnapshot
     let reviewer: ReviewerState
