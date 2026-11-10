@@ -4,7 +4,7 @@ import Workspace
 
 /// Dense, sortable table of the current scope, grouped by repo, state, author, or not at all.
 struct PRTableView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     /// Hides the column the rows are grouped by; the section header already shows it.
     @State private var columns = TableColumnCustomization<PRSnapshot>()
 
@@ -114,7 +114,7 @@ struct PRTableView: View {
 
 /// Right-click menu shared by table rows.
 struct RowMenu: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
 
     var body: some View {

@@ -4,7 +4,7 @@ import Sync
 import Workspace
 
 struct SettingsView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @State private var tab = "account"
 
     var body: some View {
@@ -37,7 +37,7 @@ struct SettingsView: View {
 }
 
 private struct AccountSettingsView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @State private var confirmSignOut = false
 
     var body: some View {
@@ -84,7 +84,7 @@ private struct AccountSettingsView: View {
 }
 
 private struct GeneralSettingsView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(Updater.self) private var updater
     private let intervals: [TimeInterval] = [30, 60, 120, 300, 600, 900]
 
@@ -129,7 +129,7 @@ private struct GeneralSettingsView: View {
 }
 
 private struct InboxSettingsView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     private let ages = [30, 60, 90, 180, 365, 0]
 
     var body: some View {
@@ -218,7 +218,7 @@ struct StringListEditor: View {
 }
 
 private struct NotificationSettingsView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     private let soundChoices = NotificationSettings.soundNames + ["default", ""]
 
     var body: some View {
@@ -319,7 +319,7 @@ private struct NotificationSettingsView: View {
 }
 
 private struct WorkspaceSettingsView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.openWindow) private var openWindow
     @State private var overrideRepo = ""
     @State private var confirmCleanup = false
@@ -443,7 +443,7 @@ private struct WorkspaceSettingsView: View {
 }
 
 private struct ClaudeSettingsView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @State private var kind: PromptKind = .review
 
     var body: some View {
@@ -491,7 +491,7 @@ private struct ClaudeSettingsView: View {
 }
 
 private struct WatchedReposSection: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @State private var draft = ""
 
     var body: some View {
@@ -534,7 +534,7 @@ private struct WatchedReposSection: View {
 }
 
 private struct IgnoredPRsSection: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     private let suggestions = ["[Snyk]", "[dependabot]", "author:dependabot[bot]", "author:renovate[bot]", "author:snyk-bot"]
 
     var body: some View {

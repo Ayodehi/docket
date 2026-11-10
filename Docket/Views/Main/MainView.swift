@@ -2,7 +2,7 @@ import ReviewCore
 import SwiftUI
 
 struct MainView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
 
     var body: some View {
         Group {
@@ -38,7 +38,7 @@ struct MainView: View {
 }
 
 private struct BrowserView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
 
     var body: some View {
         @Bindable var browser = app.browser
@@ -127,7 +127,7 @@ private struct BrowserView: View {
 }
 
 private struct SidebarView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.openWindow) private var openWindow
     @State private var repoToHide: String?
 
@@ -208,7 +208,7 @@ struct SyncStatusToolbarContent: ToolbarContent {
 }
 
 struct SyncStatusText: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
 
     var body: some View {
         Group {

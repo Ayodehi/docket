@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The popover's list in its own window, optionally floating above other apps' windows.
 struct CompactWindowView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {

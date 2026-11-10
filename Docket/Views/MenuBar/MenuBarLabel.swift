@@ -4,7 +4,7 @@ import SwiftUI
 /// Menu bar item: template icon plus the Inbox count, with variants for paused, needs sign-in,
 /// and an optional dot when CI fails on one of my PRs (off by default).
 struct MenuBarLabel: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {

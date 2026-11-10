@@ -2,7 +2,7 @@ import ReviewCore
 import SwiftUI
 
 struct PRListView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
 
     var body: some View {
         @Bindable var browser = app.browser
@@ -132,7 +132,7 @@ struct PRRow: View {
 
 /// Snooze choices, shared by context menus and the detail pane.
 struct SnoozeMenuItems: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
 
     var body: some View {

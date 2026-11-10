@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Columns per state group. Arrow keys move the selection between cards and columns.
 struct PRBoardView: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     @FocusState private var focused: Bool
 
     static let minimumWidth: CGFloat = 420
@@ -67,7 +67,7 @@ struct PRBoardView: View {
 }
 
 private struct BoardColumn: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let column: PRSection
     /// PRs in the column, counting those folded into a collapsed stack.
     let total: Int
@@ -109,7 +109,7 @@ private struct BoardColumn: View {
 }
 
 private struct BoardCard: View {
-    @Environment(AppState.self) private var app
+    @Environment(\.appState) private var app
     let pr: PRSnapshot
     let selected: Bool
     let showsState: Bool
