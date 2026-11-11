@@ -55,7 +55,7 @@ Check links (`detailsUrl`, `targetUrl`) are set by CI providers and by anyone wh
 
 | Display | Rule |
 |---|---|
-| Changes requested | `reviewDecision == CHANGES_REQUESTED`, or `reviewDecision` null and a latest opinionated review is `CHANGES_REQUESTED` |
+| Changes requested | `reviewDecision == CHANGES_REQUESTED`, or `reviewDecision` null and a latest opinionated review is `CHANGES_REQUESTED`, unless every reviewer whose latest opinionated review is `CHANGES_REQUESTED` has a pending review request again (re-requested); then Review required. GitHub keeps `CHANGES_REQUESTED` after a re-request. (Added 2026-11-11.) |
 | Approved | `reviewDecision == APPROVED`, or `reviewDecision` null and a latest opinionated review is `APPROVED` (repos without required reviews) |
 | Review required | `reviewDecision == REVIEW_REQUIRED` |
 | Commented | `reviewDecision` null or `REVIEW_REQUIRED`, and at least one `COMMENTED` review since the last push |
