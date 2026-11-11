@@ -60,7 +60,7 @@ import Testing
     @Test func reviewCommandReadsInstructionsFromAFileAndKeepsThePromptLast() {
         let flags = CommandBuilder.reviewOnlyFlags + CommandBuilder.untrustedReviewFlags + CommandBuilder.settingsFlags(file: "/f")
         let command = CommandBuilder.claudeCommand(path: "/w", promptFile: "/p", claude: "/c", flags: flags, systemPromptFile: "/s")
-        #expect(command == #"cd '/w' && p=$(cat '/p') && rm -f '/p' && s=$(cat '/s') && rm -f '/s' && '/c' '--disallowedTools=Edit,Write,NotebookEdit' '--permission-mode' 'default' '--setting-sources' 'user' '--settings' '/f' '--append-system-prompt' "$s" "$p""#)
+        #expect(command == #"cd '/w' && p=$(cat '/p') && rm -f '/p' && s=$(cat '/s') && rm -f '/s' && '/c' '--permission-mode' 'default' '--setting-sources' 'user' '--settings' '/f' '--append-system-prompt' "$s" "$p""#)
         #expect(!CommandBuilder.untrustedReviewFlags.contains("plan"))
         #expect(!command.contains("review-only"))
     }
@@ -71,6 +71,8 @@ import Testing
         let index = try! #require(flags.firstIndex(of: "--permission-mode"))
         #expect(flags[index + 1] == "default")
         #expect(!flags.contains { $0.hasPrefix("--allowedTools") || $0.hasPrefix("--allowed-tools") })
+        // Testing a PR means editing and running code, so review sessions do not disallow tools.
+        #expect(!flags.contains { $0.hasPrefix("--disallowedTools") || $0.hasPrefix("--disallowed-tools") })
     }
 
     @Test func realisticReviewCommandFitsATerminalLine() {

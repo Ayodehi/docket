@@ -72,6 +72,14 @@ import Testing
         #expect(a.hasPrefix("settings-") && a.hasSuffix(".json"))
     }
 
+    @Test func reviewInstructionsAllowLocalTestingButNotChangingThePR() {
+        let text = CommandBuilder.reviewOnlyInstructions
+        #expect(text.contains("build, run, and test the pull request locally"))
+        #expect(text.contains("do not push to any remote"))
+        #expect(text.contains("except for the one review"))
+        #expect(!text.contains("Do not modify, create, or delete files"))
+    }
+
     @Test func reviewInstructionsOfferASlackNoticeOnlyAfterConfirmation() {
         let text = CommandBuilder.reviewOnlyInstructions
         #expect(text.contains("Slack"))
