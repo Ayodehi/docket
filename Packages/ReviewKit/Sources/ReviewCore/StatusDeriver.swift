@@ -185,14 +185,25 @@ public enum StatusDeriver {
         return .none
     }
 
+    /// GitHub keeps `CHANGES_REQUESTED` after the author re-requests review from the reviewer who asked
+    /// for changes. A changes request whose author has a pending review request again is treated as
+    /// handed back, so once every one is, the status is Review required.
     static func reviewStatus(_ pr: PullRequest) -> ReviewStatus {
-        let opinions = pr.latestOpinionatedReviews.nodes.map(\.state)
+        let requested = Set(pr.reviewRequests.nodes.compactMap { request -> String? in
+            guard let reviewer = request.requestedReviewer, reviewer.typename == "User" else { return nil }
+            return reviewer.login?.lowercased()
+        })
+        let opinions = pr.latestOpinionatedReviews.nodes
+        let changesRequests = opinions.filter { $0.state == "CHANGES_REQUESTED" }
+        let reRequested = !changesRequests.isEmpty
+            && changesRequests.allSatisfy { requested.contains($0.author?.login.lowercased() ?? "") }
         switch pr.reviewDecision {
-        case "CHANGES_REQUESTED": return .changesRequested
+        case "CHANGES_REQUESTED":
+            if !reRequested { return .changesRequested }
         case "APPROVED": return .approved
         case nil:
-            if opinions.contains("CHANGES_REQUESTED") { return .changesRequested }
-            if opinions.contains("APPROVED") { return .approved }
+            if !changesRequests.isEmpty && !reRequested { return .changesRequested }
+            if opinions.contains(where: { $0.state == "APPROVED" }) { return .approved }
         default:
             break
         }
@@ -200,7 +211,7 @@ public enum StatusDeriver {
         if pr.latestReviews.nodes.contains(where: { $0.state == "COMMENTED" && ($0.submittedAt ?? .distantPast) > lastPush }) {
             return .commented
         }
-        return pr.reviewDecision == "REVIEW_REQUIRED" ? .reviewRequired : .noReviews
+        return pr.reviewDecision == "REVIEW_REQUIRED" || reRequested ? .reviewRequired : .noReviews
     }
 
     static func mergeReadiness(_ pr: PullRequest) -> MergeReadiness {
