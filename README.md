@@ -12,7 +12,7 @@ It answers one question: whose move is it, and on which PR?
 - **Local workspace.** Docket finds your local clones, creates review worktrees for PRs, and opens them in your terminal or editor. It never stashes, resets, or force-pushes on its own.
 - **Claude Code sessions.** One click starts Claude Code on a PR with a prompt chosen by its state: review it, address feedback, fix failing CI, or resolve conflicts. Sessions open in a terminal (Terminal, iTerm2, or a custom command) or in the Claude desktop app.
 - **Run a PR locally.** Per-repository run profiles start a PR's checkout with your own command, such as `devspace dev` with a chosen env file, and stop it again. DevSpace projects are detected.
-- **Safer reviews of others' PRs.** Terminal review sessions cannot edit files, pin the permission mode, and post a review only after you confirm. For other people's PRs, Claude starts without the checkout's `.claude` settings, hooks, and `.mcp.json` servers.
+- **Safer reviews of others' PRs.** Terminal review sessions can build and test the PR locally but never push to it or change it on GitHub, pin the permission mode, and post a review only after you confirm. For other people's PRs, Claude starts without the checkout's `.claude` settings, hooks, and `.mcp.json` servers.
 - **Optional review actions.** Request, re-request, or dismiss reviews from Docket. Off by default.
 - **Updates.** Release builds update themselves from GitHub Releases with Check for Updates….
 
@@ -168,8 +168,8 @@ Docket starts the `claude` CLI in the PR's worktree or clone. The prompt is pass
 
 Review sessions, whoever wrote the PR:
 
-- run with Edit, Write, and NotebookEdit disallowed;
-- pin the permission mode to `default`, so commands such as `gh pr review` ask first even if your settings use another mode;
+- may edit, build, run, and merge locally to test the PR, but get instructions never to push or change the PR on GitHub beyond the one review;
+- pin the permission mode to `default`, so edits and commands such as `gh pr review` ask first even if your settings use another mode;
 - get instructions to verify findings, mark them blocking or non-blocking, and post a review only after you confirm the exact text. If a messaging tool such as Slack is connected, Claude then offers to tell the author, again only after you confirm.
 
 Sessions on other people's PRs also start without the checkout's project settings and hooks, and with its `.mcp.json` servers rejected. Your own MCP servers still load. This isolation is on by default (Settings > Claude).

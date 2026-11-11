@@ -404,7 +404,7 @@ extension AppState {
         let isolate = workspaceSettings.isolateOthersPRs && !pr.isMine
         let review = task == .prompt(.review)
         if (isolate || review) && !warned {
-            var missing = ["Edit, Write, and NotebookEdit are not blocked, and the review-only instructions are part of the prompt instead of the system prompt.",
+            var missing = ["The review instructions are part of the prompt instead of the system prompt.",
                            "The permission mode is whatever the desktop app uses, not pinned to default, and the auto mode rules for posting a confirmed review are not added."]
             if isolate {
                 missing.append("This checkout's .claude settings, hooks, and .mcp.json servers are not blocked. The PR author wrote them, and its hooks run when the session starts.")
