@@ -69,6 +69,14 @@ public enum ReviewClaims {
         return .removeLabel
     }
 
+    /// Who has claimed `pr` for review: its assignees, other than the author, when it also carries
+    /// `label` (case-insensitive). Empty when there is no claim label, no such label on the PR, or
+    /// no assignee.
+    public static func claimants(of pr: PRSnapshot, label: String?) -> [String] {
+        guard let label, pr.labels.contains(where: { $0.lowercased() == label.lowercased() }) else { return [] }
+        return (pr.assignees ?? []).filter { $0.lowercased() != pr.author.lowercased() }
+    }
+
     /// True when the PR already carries `label` (case-insensitive), so Docket did not add it.
     public static func hasLabel(_ label: String, on pr: PullRequest) -> Bool {
         pr.labels.nodes.contains { $0.name.lowercased() == label.lowercased() }

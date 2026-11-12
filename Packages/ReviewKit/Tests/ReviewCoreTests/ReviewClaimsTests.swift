@@ -48,6 +48,21 @@ import Testing
         #expect(ReviewClaims.decide(claim(), pr: nil, viewer: "asokolov", now: at(15 * 24)) == .drop)
     }
 
+    @Test func claimantsNeedLabelAndAssignee() {
+        func snapshot(_ builder: PRBuilder) -> PRSnapshot {
+            StatusDeriver.snapshot(for: builder.build(), context: DerivationContext(viewer: "asokolov", teams: [], lastViewed: [:], now: t0),
+                                   foundByRequestSearch: false, previous: nil)
+        }
+        let claimed = snapshot(PRBuilder(labels: ["in review"], assignees: ["asokolov", "mchen", "jdoe"]))
+        #expect(ReviewClaims.claimants(of: claimed, label: "In Review") == ["asokolov", "jdoe"])
+        #expect(ReviewClaims.claimants(of: claimed, label: nil).isEmpty)
+        #expect(ReviewClaims.claimants(of: claimed, label: "Blocked").isEmpty)
+        let unassigned = snapshot(PRBuilder(labels: ["In Review"]))
+        #expect(ReviewClaims.claimants(of: unassigned, label: "In Review").isEmpty)
+        let unlabeled = snapshot(PRBuilder(assignees: ["asokolov"]))
+        #expect(ReviewClaims.claimants(of: unlabeled, label: "In Review").isEmpty)
+    }
+
     @Test func fullLabelPageStillTriesRemoval() {
         let pr = PRBuilder(latest: [("asokolov", "APPROVED", 1)], labels: (1...10).map { "label-\($0)" }).build()
         #expect(ReviewClaims.decide(claim(), pr: pr, viewer: "asokolov", now: at(2)) == .removeLabel)

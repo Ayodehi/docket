@@ -28,6 +28,7 @@ struct PRBuilder {
     /// Conversation comments: (author, hour)
     var conversation: [(String, Double)] = []
     var labels: [String] = []
+    var assignees: [String] = []
     var state = "OPEN"
 
     func build() -> PullRequest {
@@ -56,7 +57,8 @@ struct PRBuilder {
             }),
             commits: Connection(nodes: [CommitNode(commit: Commit(oid: head, committedDate: at(pushedAt),
                 statusCheckRollup: rollup.map { StatusCheckRollup(state: $0, contexts: Connection(nodes: contexts)) }))]),
-            comments: Connection(nodes: conversation.map { ThreadComment(author: Account(login: $0.0, avatarUrl: nil), createdAt: at($0.1)) })
+            comments: Connection(nodes: conversation.map { ThreadComment(author: Account(login: $0.0, avatarUrl: nil), createdAt: at($0.1)) }),
+            assignees: Connection(nodes: assignees.map { Account(login: $0, avatarUrl: nil) })
         )
     }
 }

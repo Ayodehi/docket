@@ -151,7 +151,8 @@ public enum StatusDeriver {
             unresolvedThreads: pr.reviewThreads.nodes.filter { !$0.isResolved }.count,
             commentMarks: commentMarks(pr, me: me, ignoring: context.ignoredAuthors),
             primary: primary,
-            stateEnteredAt: enteredAt
+            stateEnteredAt: enteredAt,
+            assignees: pr.assignees?.nodes.map(\.login)
         )
     }
 

@@ -29,6 +29,8 @@ Label removal:
 - Turning off "Remove the label" drops all pending claims. Signing out clears them.
 - Claims are stored in `review-claims.json` in Application Support: PR node ID, repo and number, label ID and name, and two dates. No PR text.
 
+Claimed column: the Table view has a Claimed column naming who has claimed each PR. A PR counts as claimed when it carries the claim label from settings and has at least one assignee other than its author, whoever added them. The column shows "you" for me and is empty when no claim label is set. Assignees come from `assignees(first: 10)` in the detail query. The column is not sortable.
+
 ## 3. GitHub API
 
 GraphQL, with every value passed as a variable. Field names were checked against the live schema on 2026-11-12.

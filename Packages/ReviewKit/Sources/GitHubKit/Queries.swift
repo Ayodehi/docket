@@ -30,6 +30,7 @@ enum Queries {
       headRepository { nameWithOwner }
       isCrossRepository reviewDecision mergeable mergeStateStatus
       labels(first: 10) { nodes { name color } }
+      assignees(first: 10) { nodes { login } }
       reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on User { login } ... on Team { slug organization { login } } } } }
       latestOpinionatedReviews(first: 20) { nodes { id author { login ... on User { id } } state submittedAt commit { oid } } }
       latestReviews(first: 20) { nodes { id author { login ... on User { id } } state submittedAt } }
