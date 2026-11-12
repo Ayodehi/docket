@@ -13,11 +13,7 @@ extension AppState {
         do {
             let updated = try await makeClient().perform(action)
             Log.github.notice("Review action \(action.name, privacy: .public) on \(target, privacy: .public): \(action.count) affected")
-            if let engine {
-                await engine.apply(actionResult: updated)
-                publish(await engine.state, final: false)
-                rebaseline(id: pr.id)
-            }
+            await applyWriteResult(updated)
         } catch let error as GitHubError {
             Log.github.error("Review action \(action.name, privacy: .public) on \(target, privacy: .public) failed: \(error.kind, privacy: .public)")
             if error == .unauthorized { refresh() }

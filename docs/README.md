@@ -14,6 +14,7 @@ Docket is a native macOS menu bar app that watches your GitHub pull requests, te
 | [Roadmap and milestones](roadmap.md) | M0 to M6 for v1, then v1.1 and later candidates |
 | [UX options](ux-options.md) | Layout options, the recorded decision, and how the List, Board, Table, and Compact view modes work |
 | [Design note: review actions](design/review-actions.md) | Request, re-request, and dismiss reviews from Docket (opt-in, off by default) |
+| [Design note: assign and label on review start](design/review-claim.md) | Assign me and add a label such as In Review when a review session starts; remove the label once the review is posted (opt-in, off by default) |
 | [Design note: self-update](design/self-update.md) | Check for Updates… with Sparkle and GitHub Releases, in release builds only |
 
 These documents are the original design spec, written in the first person by the author. Dated notes record later changes. The setup guide for users is the [README](../README.md) at the repository root.

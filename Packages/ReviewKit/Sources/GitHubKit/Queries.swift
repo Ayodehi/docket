@@ -99,6 +99,41 @@ enum Queries {
     \(detailFragment)
     """
 
+    // MARK: Review claim (docs/design/review-claim.md)
+    //
+    // Same rules as review actions: user values are variables, and each mutation returns the
+    // updated PR. The add mutations keep existing assignees and labels.
+
+    /// My node ID and, with `$withLabel`, labels whose names contain `$label`. `label(name:)` is
+    /// case-sensitive, so the client picks the case-insensitive exact match from this search.
+    static let claimTargets = """
+    query ClaimTargets($owner: String!, $name: String!, $label: String!, $withLabel: Boolean!) {
+      viewer { id }
+      repository(owner: $owner, name: $name) { labels(first: 50, query: $label) @include(if: $withLabel) { nodes { id name } } }
+    }
+    """
+
+    static let addAssignee = """
+    mutation AddAssignee($pr: ID!, $ids: [ID!]) {
+      addAssigneesToAssignable(input: { assignableId: $pr, assigneeIds: $ids }) { assignable { ... on PullRequest { ...PRFields } } }
+    }
+    \(detailFragment)
+    """
+
+    static let addLabel = """
+    mutation AddLabel($pr: ID!, $ids: [ID!]) {
+      addLabelsToLabelable(input: { labelableId: $pr, labelIds: $ids }) { labelable { ... on PullRequest { ...PRFields } } }
+    }
+    \(detailFragment)
+    """
+
+    static let removeLabel = """
+    mutation RemoveLabel($pr: ID!, $ids: [ID!]!) {
+      removeLabelsFromLabelable(input: { labelableId: $pr, labelIds: $ids }) { labelable { ... on PullRequest { ...PRFields } } }
+    }
+    \(detailFragment)
+    """
+
     /// People GitHub suggests as reviewers. Fetched only when the picker opens.
     static let suggestedReviewers = """
     query SuggestedReviewers($pr: ID!) {

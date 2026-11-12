@@ -101,6 +101,41 @@ public final class LiveGitHubClient: GitHubClient {
     }
 
     /// Logins GitHub suggests as reviewers for a PR, without bots or the author.
+    /// Looks up my node ID and, when `label` is given, that label in `repo` (`owner/name`).
+    public func claimTargets(repo: String, label: String?) async throws -> ClaimTargets {
+        struct Response: Decodable {
+            struct Viewer: Decodable { var id: String }
+            struct Repo: Decodable { var labels: Connection<LabelRef>? }
+            var viewer: Viewer
+            var repository: Repo?
+        }
+        let parts = repo.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 2, ReviewInput.isLogin(parts[0]), !parts[1].isEmpty else { throw ReviewInputError.invalidID }
+        let (data, _) = try await post(query: Queries.claimTargets,
+                                       variables: ["owner": parts[0], "name": parts[1], "label": label ?? "", "withLabel": label != nil])
+        let decoded: Response = try decodeData(data)
+        try ReviewInput.checkNodeID(decoded.viewer.id)
+        let nodes = decoded.repository?.labels?.nodes ?? []
+        let found = label.flatMap { wanted in nodes.first { $0.name == wanted } ?? nodes.first { $0.name.lowercased() == wanted.lowercased() } }
+        if let found { try ReviewInput.checkNodeID(found.id) }
+        return ClaimTargets(viewerID: decoded.viewer.id, labelID: found?.id, labelName: found?.name)
+    }
+
+    public func perform(_ action: ClaimAction) async throws -> PullRequest {
+        struct Assign: Decodable { struct Payload: Decodable { var assignable: PullRequest? }; var addAssigneesToAssignable: Payload? }
+        struct Add: Decodable { struct Payload: Decodable { var labelable: PullRequest? }; var addLabelsToLabelable: Payload? }
+        struct Remove: Decodable { struct Payload: Decodable { var labelable: PullRequest? }; var removeLabelsFromLabelable: Payload? }
+        let (data, _) = try await post(query: action.query, variables: action.variables)
+        let pr: PullRequest?
+        switch action {
+        case .assign: pr = (try decodeMutation(data) as Assign).addAssigneesToAssignable?.assignable
+        case .addLabel: pr = (try decodeMutation(data) as Add).addLabelsToLabelable?.labelable
+        case .removeLabel: pr = (try decodeMutation(data) as Remove).removeLabelsFromLabelable?.labelable
+        }
+        guard let pr else { throw GitHubError.decoding("Response had no pull request") }
+        return pr
+    }
+
     public func suggestedReviewers(pullRequestID: String) async throws -> [String] {
         struct Data: Decodable {
             struct Node: Decodable { var suggestedReviewerActors: Connection<Suggestion>? }
