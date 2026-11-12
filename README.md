@@ -14,6 +14,7 @@ It answers one question: whose move is it, and on which PR?
 - **Run a PR locally.** Per-repository run profiles start a PR's checkout with your own command, such as `devspace dev` with a chosen env file, and stop it again. DevSpace projects are detected.
 - **Safer reviews of others' PRs.** Terminal review sessions can build and test the PR locally but never push to it or change it on GitHub, pin the permission mode, and post a review only after you confirm. For other people's PRs, Claude starts without the checkout's `.claude` settings, hooks, and `.mcp.json` servers.
 - **Optional review actions.** Request, re-request, or dismiss reviews from Docket. Off by default.
+- **Optional review claim.** When Claude starts reviewing a PR, assign yourself and add a label such as "In Review"; Docket removes the label once your review is posted. Off by default.
 - **Updates.** Release builds update themselves from GitHub Releases with Check for Updates….
 
 ## Requirements
@@ -150,7 +151,7 @@ Then run `xcodegen generate` again.
    |---|---|---|
    | Read PRs, reviews, and CI status | `repo` | Pull requests, Commit statuses, and Contents: read (Metadata is added automatically) |
    | Tell team review requests from direct ones | `read:org` | Members (an organization permission): read |
-   | Optional review actions | (included in `repo`) | Pull requests: write |
+   | Optional review actions and review claim | (included in `repo`) | Pull requests: write |
 
    Fine-grained tokens have two limits. GitHub offers no Checks permission for them, so CI results from GitHub Actions (check runs) may not show; commit statuses from other CI services do. And organization permissions such as Members only appear when the token's **Resource owner** is an organization, not your personal account; your organization may also need to allow fine-grained tokens. A fine-grained token covers one resource owner, so PRs in other owners' private repositories will not appear.
 
@@ -182,7 +183,7 @@ See [Local workspace and Claude Code integration](docs/local-workspace-integrati
 
 - The GitHub token lives only in the login Keychain. It is never written to files, settings, or logs.
 - Docket talks to `api.github.com` for your PRs. Release builds also check GitHub Releases for updates when you ask, or daily if you opt in, without sending your token. There is no telemetry or crash reporting.
-- Docket is read-only against GitHub unless you turn on review actions.
+- Docket is read-only against GitHub unless you turn on review actions or the review claim (Settings > Account).
 - Processes run with argument arrays; the terminal launch command is the only shell string, and every value in it is validated or single-quoted.
 
 Details are in [Security and privacy](docs/security-and-privacy.md). To report a vulnerability, see [SECURITY.md](SECURITY.md).

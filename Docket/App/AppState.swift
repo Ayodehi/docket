@@ -201,6 +201,23 @@ final class AppState {
             Log.github.notice("Review actions \(self.reviewActionsEnabled ? "enabled" : "disabled", privacy: .public)")
         }
     }
+    /// Assign me and label the PR when a review session starts (docs/design/review-claim.md).
+    /// Off by default.
+    var reviewClaimSettings: ReviewClaimSettings {
+        didSet {
+            settingsStore.set(reviewClaimSettings, forKey: "reviewClaimSettings")
+            if reviewClaimSettings != oldValue {
+                Log.github.notice("Review claim: assign \(self.reviewClaimSettings.assignMe ? "on" : "off", privacy: .public), label \(self.reviewClaimSettings.labelName == nil ? "off" : "on", privacy: .public), remove when posted \(self.reviewClaimSettings.removeLabelWhenPosted ? "on" : "off", privacy: .public)")
+            }
+            if !reviewClaimSettings.removeLabelWhenPosted && !pendingClaims.isEmpty {
+                pendingClaims = []
+                saveClaims()
+            }
+        }
+    }
+    /// Labels Docket added that it removes once my review is posted (AppState+ReviewClaim).
+    @ObservationIgnored var pendingClaims: [PendingClaim] = []
+    @ObservationIgnored var isReleasingClaims = false
     let browser = BrowserModel()
     /// Main window and menu bar popover currently on screen.
     var visibleSurfaces = 0
@@ -241,6 +258,7 @@ final class AppState {
         collapsedStacks = Set(defaults.stringArray(forKey: "collapsedStacks") ?? [])
         ignoredPRPatterns = defaults.stringArray(forKey: "ignoredPRPatterns") ?? []
         reviewActionsEnabled = defaults.bool(forKey: "reviewActionsEnabled")
+        reviewClaimSettings = SettingsStore().value(ReviewClaimSettings.self, forKey: "reviewClaimSettings") ?? ReviewClaimSettings()
         workspaceSettings = SettingsStore().value(WorkspaceSettings.self, forKey: "workspaceSettings") ?? WorkspaceSettings()
         viewSettings = SettingsStore().value(ViewSettings.self, forKey: "viewSettings") ?? ViewSettings()
         Task { self.bootstrap() }
@@ -290,6 +308,7 @@ final class AppState {
         lastViewed = (try? files?.load([String: Date].self, from: viewedFile, decoder: GitHubJSON.decoder())) ?? [:]
         ledger = (try? files?.load(NotificationLedger.self, from: ledgerFile, decoder: GitHubJSON.decoder())) ?? NotificationLedger()
         snoozes = (try? files?.load([String: Snooze].self, from: snoozesFile, decoder: GitHubJSON.decoder())) ?? [:]
+        loadClaims()
         if let file = try? files?.load(SnapshotFile.self, from: snapshotsFile, decoder: GitHubJSON.decoder()), file.version == SnapshotFile.version {
             snapshots = file.snapshots
             eventBaseline = Dictionary(file.snapshots.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -346,6 +365,7 @@ final class AppState {
         try? files?.removeAll()
         snapshots = []
         lastViewed = [:]
+        pendingClaims = []
         resetNotificationState()
         publish(SyncState(), final: false)
         syncError = nil
@@ -429,6 +449,21 @@ final class AppState {
             guard let token = try keychain.load()?.token else { throw GitHubError.missingToken }
             return token
         })
+    }
+
+    /// The signed-in user's login, from the last sync or the session.
+    var viewerLogin: String? { syncState.viewerLogin ?? session.login }
+
+    /// The latest full detail Docket has for a PR, or nil when it no longer tracks it.
+    func detail(id: String) -> PullRequest? { syncState.records[id]?.detail }
+
+    /// Shows a PR returned by one of my own writes right away and makes it that PR's notification
+    /// baseline, since I already know what I just did.
+    func applyWriteResult(_ pr: PullRequest) async {
+        guard let engine else { return }
+        await engine.apply(actionResult: pr)
+        publish(await engine.state, final: false)
+        rebaseline(id: pr.id)
     }
 
     /// My teams as `org/slug`, when the token can read them.
@@ -526,6 +561,7 @@ final class AppState {
         rederive()
         if final {
             processEvents(now: now)
+            releaseClaims(now: now)
             try? files?.save(SnapshotFile(snapshots: snapshots), as: snapshotsFile, encoder: GitHubJSON.encoder())
             try? files?.save(lastViewed, as: viewedFile, encoder: GitHubJSON.encoder())
         }

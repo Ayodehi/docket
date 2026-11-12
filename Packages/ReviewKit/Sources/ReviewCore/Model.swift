@@ -186,6 +186,8 @@ public struct PRSnapshot: Codable, Sendable, Hashable, Identifiable {
     public var commentMarks: [CommentMark]
     public var primary: PrimaryState
     public var stateEnteredAt: Date
+    /// Assignee logins. `nil` in snapshots cached before they were collected.
+    public var assignees: [String]? = nil
 
     public var role: Role? { roles.min() }
     public var isMine: Bool { roles.contains(.author) }

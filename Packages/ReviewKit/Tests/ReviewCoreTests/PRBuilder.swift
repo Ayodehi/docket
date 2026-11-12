@@ -27,16 +27,19 @@ struct PRBuilder {
     var updated: Double = -1
     /// Conversation comments: (author, hour)
     var conversation: [(String, Double)] = []
+    var labels: [String] = []
+    var assignees: [String] = []
+    var state = "OPEN"
 
     func build() -> PullRequest {
         PullRequest(
             id: id, number: 7, title: "Fictional change", url: URL(string: "https://github.com/example-org/web-console/pull/7")!,
-            state: "OPEN", isDraft: draft, createdAt: at(-48), updatedAt: at(updated), additions: 10, deletions: 2, changedFiles: 1,
+            state: state, isDraft: draft, createdAt: at(-48), updatedAt: at(updated), additions: 10, deletions: 2, changedFiles: 1,
             author: Account(login: author, avatarUrl: nil),
             repository: RepositoryRef(nameWithOwner: "example-org/web-console", isArchived: false),
             headRefName: "\(author)/change", headRefOid: head, baseRefName: "main", headRepository: nil, isCrossRepository: false,
             reviewDecision: decision, mergeable: mergeable, mergeStateStatus: mergeState,
-            labels: Connection(nodes: []),
+            labels: Connection(nodes: labels.map { Label(name: $0, color: "ededed") }),
             reviewRequests: Connection(nodes:
                 requestedUsers.map { ReviewRequest(requestedReviewer: RequestedReviewer(typename: "User", login: $0, slug: nil, organization: nil)) } +
                 requestedTeams.map {
@@ -54,7 +57,8 @@ struct PRBuilder {
             }),
             commits: Connection(nodes: [CommitNode(commit: Commit(oid: head, committedDate: at(pushedAt),
                 statusCheckRollup: rollup.map { StatusCheckRollup(state: $0, contexts: Connection(nodes: contexts)) }))]),
-            comments: Connection(nodes: conversation.map { ThreadComment(author: Account(login: $0.0, avatarUrl: nil), createdAt: at($0.1)) })
+            comments: Connection(nodes: conversation.map { ThreadComment(author: Account(login: $0.0, avatarUrl: nil), createdAt: at($0.1)) }),
+            assignees: Connection(nodes: assignees.map { Account(login: $0, avatarUrl: nil) })
         )
     }
 }

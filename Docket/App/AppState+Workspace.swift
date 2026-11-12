@@ -389,6 +389,7 @@ extension AppState {
                     show(title: "Command copied", message: "Docket is not allowed to control your terminal. The command is on the clipboard; paste it in the terminal window to start Claude. You can allow Docket under System Settings > Privacy & Security > Automation.")
                 }
                 Log.workspace.notice("Started Claude (\(task.logName, privacy: .public))")
+                if task == .prompt(.review) { claimForReview(pr) }
                 if let notice { show(title: "Claude started with limits", message: notice) }
             } catch {
                 files.forEach { try? FileManager.default.removeItem(at: $0) }
@@ -439,6 +440,7 @@ extension AppState {
             }
             NSWorkspace.shared.open(url)
             Log.workspace.notice("Started Claude desktop (\(task.logName, privacy: .public))")
+            if task == .prompt(.review) { claimForReview(pr) }
         } catch {
             show(error)
         }

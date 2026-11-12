@@ -197,6 +197,8 @@ public struct PullRequest: Codable, Sendable, Hashable, Identifiable {
     /// Conversation comments, newest last. Only authors and times are fetched. `nil` in caches from
     /// before they were collected.
     public var comments: Connection<ThreadComment>? = nil
+    /// Assignee logins. `nil` in caches from before they were collected.
+    public var assignees: Connection<Account>? = nil
 
     public var ciRollup: String? { commits.nodes.first?.commit.statusCheckRollup?.state }
 }

@@ -21,6 +21,7 @@ struct PRTableView: View {
             ($0.id, Stacks.fold($0.items, positions: app.stacks, collapsed: app.collapsedStacks))
         }, uniquingKeysWith: { first, _ in first })
         let followers = folds.values.reduce(into: [String: [PRSnapshot]]()) { $0.merge($1.followers) { first, _ in first } }
+        let claimLabel = app.reviewClaimSettings.labelName
         Group {
             if visible.isEmpty {
                 ContentUnavailableView(browser.searchText.isEmpty ? "No PRs" : "No matches", systemImage: "tablecells",
@@ -66,10 +67,11 @@ struct PRTableView: View {
                         Text(pr.merge.title).foregroundStyle(pr.merge.tone.text)
                     }
                     .width(min: 70, ideal: 110)
-                    TableColumn("Threads", value: \.unresolvedThreads) { pr in
-                        Text(pr.unresolvedThreads == 0 ? "" : "\(pr.unresolvedThreads)").monospacedDigit()
+                    TableColumn("Claimed") { pr in
+                        ClaimCell(claimants: ReviewClaims.claimants(of: pr, label: claimLabel), label: claimLabel, viewer: app.viewerLogin)
                     }
-                    .width(min: 40, ideal: 56, max: 70)
+                    .width(min: 60, ideal: 110)
+                    .customizationID("claimed")
                     TableColumn("Updated", value: \.updatedAt) { pr in
                         Text(Age.short(since: pr.updatedAt)).monospacedDigit().foregroundStyle(.secondary)
                             .help(pr.updatedAt.formatted())
@@ -109,6 +111,25 @@ struct PRTableView: View {
         }
         // Groups keep their order; rows inside follow the column sort.
         return grouped.map { PRSection(id: $0.id, title: $0.title, items: $0.items.sorted(using: sort)) }
+    }
+}
+
+/// Who has claimed a PR for review: assigned and carrying the claim label from Settings > Account.
+private struct ClaimCell: View {
+    let claimants: [String]
+    let label: String?
+    let viewer: String?
+
+    var body: some View {
+        if claimants.isEmpty {
+            EmptyView()
+        } else {
+            let names = claimants.map { $0.lowercased() == viewer?.lowercased() ? "you" : $0 }
+            Label(names.joined(separator: ", "), systemImage: "person.badge.clock")
+                .lineLimit(1)
+                .help("Claimed for review by \(names.joined(separator: ", ")): assigned, with the \(label.map { "“\($0)”" } ?? "") label.")
+                .accessibilityLabel("Claimed by \(names.joined(separator: ", "))")
+        }
     }
 }
 

@@ -26,5 +26,5 @@ swift test --package-path Packages/ReviewKit
 - Run processes with `Process` and an argument array. The only shell strings are the terminal launch commands built in `Workspace` (Claude and run profiles).
 - Never put PR titles, bodies, comments, labels, or fork branch names into commands or Claude prompts. Validate branch names and single-quote paths.
 - Never stash, reset, force-push, delete branches, or remove worktrees with `--force` automatically.
-- Read-only against GitHub except the opt-in review actions in `docs/design/review-actions.md` (request, re-request, dismiss; off by default). Add no other writes or scopes without a design note in `docs/design/`.
+- Read-only against GitHub except the opt-in review actions in `docs/design/review-actions.md` (request, re-request, dismiss) and the review claim in `docs/design/review-claim.md` (assign me, add and remove a label on review start); both off by default. Add no other writes or scopes without a design note in `docs/design/`.
 - Status is shown with icon and text, never color alone.

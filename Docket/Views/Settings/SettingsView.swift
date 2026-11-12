@@ -1,3 +1,4 @@
+import GitHubKit
 import ReviewCore
 import SwiftUI
 import Sync
@@ -62,6 +63,8 @@ private struct AccountSettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Divider()
+                ReviewClaimSettingsView()
+                Divider()
                 Button("Sign Out…", role: .destructive) { confirmSignOut = true }
                     .confirmationDialog("Sign out of GitHub?", isPresented: $confirmSignOut) {
                         Button("Sign Out", role: .destructive) { app.signOut() }
@@ -79,7 +82,34 @@ private struct AccountSettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(20)
-        .frame(width: 560, height: 420)
+        .frame(width: 560, height: 600)
+    }
+}
+
+/// Assign me and label the PR when a review session starts (docs/design/review-claim.md).
+private struct ReviewClaimSettingsView: View {
+    @Environment(\.appState) private var app
+
+    var body: some View {
+        @Bindable var app = app
+        VStack(alignment: .leading, spacing: 6) {
+            Text("When Claude starts a review of someone else's PR").font(.headline)
+            Toggle("Assign me to the PR", isOn: $app.reviewClaimSettings.assignMe)
+            LabeledContent("Add label") {
+                TextField("None", text: $app.reviewClaimSettings.label, prompt: Text("For example, In Review"))
+                    .frame(maxWidth: 220)
+            }
+            Toggle("Remove the label when my review is posted", isOn: $app.reviewClaimSettings.removeLabelWhenPosted)
+                .disabled(app.reviewClaimSettings.labelName == nil)
+            if !app.reviewClaimSettings.label.trimmingCharacters(in: .whitespaces).isEmpty && app.reviewClaimSettings.labelName == nil {
+                Label("Label names are up to \(ReviewLabel.maxLength) characters on one line.", systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+            }
+            Text("The label must already exist in the repository; Docket does not create labels. A label that was already on the PR is left alone. Changes run as you on GitHub; a fine-grained token needs Pull requests: write.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
