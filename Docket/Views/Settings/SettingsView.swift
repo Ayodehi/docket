@@ -492,8 +492,11 @@ private struct ClaudeSettingsView: View {
                     ForEach(WorkspaceSettings.NotCheckedOut.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 Toggle("Isolate Claude when reviewing others' PRs", isOn: $app.workspaceSettings.isolateOthersPRs)
+                Picker("Review sessions start in", selection: $app.workspaceSettings.reviewMode) {
+                    ForEach(ReviewPermissionMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
             } footer: {
-                Text("Used by the Claude button when the PR is not already in a worktree or checked out. The button's menu can pick a worktree or the main clone for one task, or open a session with no task. Your own PRs get a worktree on their branch so you can push; others' PRs get one at the PR's latest commit. Isolation starts Claude without that checkout's .claude settings, hooks, and .mcp.json servers (your own MCP servers, such as Slack, still load), and in plan mode except for reviews, which cannot edit files. The checkout's CLAUDE.md is still read, so treat its instructions with care.")
+                Text("Used by the Claude button when the PR is not already in a worktree or checked out. The button's menu can pick a worktree or the main clone for one task, or open a session with no task. Your own PRs get a worktree on their branch so you can push; others' PRs get one at the PR's latest commit. Isolation starts Claude without that checkout's .claude settings, hooks, and .mcp.json servers (your own MCP servers, such as Slack, still load), and in plan mode except for reviews. Review sessions start in the mode you pick: in auto mode, Claude Code's classifier decides edits and commands, including running the PR's code; otherwise Claude asks before each one. Either way, Claude Code asks you before posting the review. The checkout's CLAUDE.md is still read, so treat its instructions with care.")
                     .foregroundStyle(.secondary)
             }
             Section {

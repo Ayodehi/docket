@@ -58,18 +58,19 @@ import Testing
     }
 
     @Test func reviewCommandReadsInstructionsFromAFileAndKeepsThePromptLast() {
-        let flags = CommandBuilder.reviewOnlyFlags + CommandBuilder.untrustedReviewFlags + CommandBuilder.settingsFlags(file: "/f")
+        let flags = CommandBuilder.reviewOnlyFlags(.default) + CommandBuilder.untrustedReviewFlags + CommandBuilder.settingsFlags(file: "/f")
         let command = CommandBuilder.claudeCommand(path: "/w", promptFile: "/p", claude: "/c", flags: flags, systemPromptFile: "/s")
         #expect(command == #"cd '/w' && p=$(cat '/p') && rm -f '/p' && s=$(cat '/s') && rm -f '/s' && '/c' '--permission-mode' 'default' '--setting-sources' 'user' '--settings' '/f' '--append-system-prompt' "$s" "$p""#)
         #expect(!CommandBuilder.untrustedReviewFlags.contains("plan"))
         #expect(!command.contains("review-only"))
     }
 
-    @Test func everyReviewSessionPinsThePermissionMode() {
-        // A user setting such as defaultMode "auto" must not let a review run or post without asking.
-        let flags = CommandBuilder.reviewOnlyFlags
+    @Test(arguments: ReviewPermissionMode.allCases)
+    func everyReviewSessionPinsThePermissionMode(_ mode: ReviewPermissionMode) {
+        // The mode comes from Settings > Claude, not from a user defaultMode.
+        let flags = CommandBuilder.reviewOnlyFlags(mode)
         let index = try! #require(flags.firstIndex(of: "--permission-mode"))
-        #expect(flags[index + 1] == "default")
+        #expect(flags[index + 1] == mode.rawValue)
         #expect(!flags.contains { $0.hasPrefix("--allowedTools") || $0.hasPrefix("--allowed-tools") })
         // Testing a PR means editing and running code, so review sessions do not disallow tools.
         #expect(!flags.contains { $0.hasPrefix("--disallowedTools") || $0.hasPrefix("--disallowed-tools") })
@@ -80,7 +81,7 @@ import Testing
         let path = "/Users/someone-with-a-long-name/Projects/.review-worktrees/example-organization-some-repository-pr-12345"
         let cache = "/Users/someone-with-a-long-name/Library/Caches/Docket/prompts/prompt-620C403D-2D1E-41B6-AC81-271B32952CF5.txt"
         let settings = "/Users/someone-with-a-long-name/Library/Caches/Docket/settings/" + SessionSettings.fileName(for: Data("x".utf8))
-        let flags = CommandBuilder.reviewOnlyFlags + CommandBuilder.untrustedReviewFlags + CommandBuilder.noMCPFlags + CommandBuilder.settingsFlags(file: settings)
+        let flags = CommandBuilder.reviewOnlyFlags(.auto) + CommandBuilder.untrustedReviewFlags + CommandBuilder.noMCPFlags + CommandBuilder.settingsFlags(file: settings)
         let command = CommandBuilder.claudeCommand(path: path, promptFile: cache, claude: "/Users/someone-with-a-long-name/.local/bin/claude",
                                                    flags: flags, systemPromptFile: cache)
         #expect(command.utf8.count < CommandBuilder.maxTerminalLine)
