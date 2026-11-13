@@ -44,31 +44,45 @@ public enum SessionSettings {
         }
     }
 
-    /// Rules added to the auto mode classifier's allow list in review sessions. A review session
-    /// starts in default mode, but it can end up in auto mode (a user `defaultMode: auto`, or the
-    /// user switching), where the classifier otherwise blocks posting even after the user confirms.
-    /// Both rules name the one pull request and require the user's confirmation in the session; the
-    /// message rule covers only a message to that pull request's author. Nil for an unsafe target.
+    /// Ask rules for review sessions. A review session starts in default mode, but it can end up in
+    /// auto mode (observed when `/code-review`'s background agent reports back, or the user
+    /// switching). There the classifier often blocked `gh pr review` even after the user confirmed,
+    /// because it does not see Claude's replies (the review text and the question) and so cannot
+    /// tell what a bare "yes" approved. An explicit ask rule is resolved before the classifier and
+    /// always shows a permission prompt, in every mode, so posting takes one click instead of
+    /// being blocked.
+    public static let reviewAsk = ["Bash(gh pr review *)"]
+
+    /// Rules added to the auto mode classifier's allow list in review sessions, for posts the ask
+    /// rule does not catch (a command form it does not match) and for the Slack message. Each rule
+    /// is written in terms the classifier can check: the user's own messages and the command. Both
+    /// name the one pull request; the message rule covers only a message to that pull request's
+    /// author. Nil for an unsafe target.
     public static func reviewAutoModeAllow(_ target: ReviewTarget) -> [String]? {
         guard Safety.isSafeRepo(target.repo), target.number > 0 else { return nil }
         let pr = "pull request #\(target.number) in \(target.repo)"
         return [
             "$defaults",
-            "Posting one review (approve, request changes, or comment) with gh pr review on \(pr), and no other pull request, after the user has seen the exact review text in this session and confirmed it",
-            "Sending one message through a connected messaging tool such as Slack to the author of \(pr), and no one else, saying the review is posted, after the user has seen the exact message and recipient in this session and confirmed them",
+            "Posting a review on \(pr) with gh pr review \(target.number) (approve, request changes, or comment, with a body): the user started this session to review that pull request, and Claude shows the review and asks before posting. Allowed when the user's most recent message approves posting, even briefly, such as \"yes\" or \"post it\". Does not cover any other pull request, or merging, closing, editing, labeling, or commenting on this one outside the review",
+            "Sending one message through a connected messaging tool such as Slack to the author of \(pr), saying the review is posted: Claude offers this after posting and shows the message and recipient first. Allowed when the user's most recent message approves sending it, even briefly, such as \"yes\" or \"send it\". Does not cover any other recipient or message",
         ]
     }
 
     /// - Parameters:
     ///   - permissionMode: also written as `permissions.defaultMode`, so anything that falls back to
     ///     the default mode during the session gets this one, not the user's.
-    ///   - review: adds `reviewAutoModeAllow` for that pull request.
+    ///   - review: adds `reviewAsk` and `reviewAutoModeAllow` for that pull request.
     ///   - rejectedProjectServers: `.mcp.json` servers to mark rejected, so Claude neither starts
     ///     them nor asks the user to approve them.
     public static func json(permissionMode: String?, review: ReviewTarget?, rejectedProjectServers: [String]) -> Data? {
         var settings: [String: Any] = [:]
-        if let permissionMode { settings["permissions"] = ["defaultMode": permissionMode] }
-        if let review, let allow = reviewAutoModeAllow(review) { settings["autoMode"] = ["allow": allow] }
+        var permissions: [String: Any] = [:]
+        if let permissionMode { permissions["defaultMode"] = permissionMode }
+        if let review, let allow = reviewAutoModeAllow(review) {
+            permissions["ask"] = reviewAsk
+            settings["autoMode"] = ["allow": allow]
+        }
+        if !permissions.isEmpty { settings["permissions"] = permissions }
         if !rejectedProjectServers.isEmpty { settings["disabledMcpjsonServers"] = rejectedProjectServers }
         guard !settings.isEmpty else { return nil }
         return try? JSONSerialization.data(withJSONObject: settings, options: [.sortedKeys])

@@ -26,6 +26,7 @@ struct WorkspaceSettings: Codable, Equatable {
         claudeApp = try c.decodeIfPresent(ClaudeApp.self, forKey: .claudeApp) ?? d.claudeApp
         templates = try c.decodeIfPresent([PromptKind: String].self, forKey: .templates) ?? d.templates
         runProfiles = try c.decodeIfPresent([String: RepoRunSettings].self, forKey: .runProfiles) ?? d.runProfiles
+        reviewMode = try c.decodeIfPresent(ReviewPermissionMode.self, forKey: .reviewMode) ?? d.reviewMode
     }
 
     enum NotCheckedOut: String, Codable, CaseIterable {
@@ -54,6 +55,8 @@ struct WorkspaceSettings: Codable, Equatable {
     var isolateOthersPRs = true
     /// Where the Claude button starts Claude; the button's menu can pick the other one per launch.
     var claudeApp: ClaudeApp = .terminal
+    /// Permission mode for review sessions in the terminal. Posting the review always prompts.
+    var reviewMode: ReviewPermissionMode = .auto
     var templates: [PromptKind: String] = [:]
     /// `owner/name` to that repo's run profiles (Settings > Run).
     var runProfiles: [String: RepoRunSettings] = [:]
@@ -354,11 +357,11 @@ extension AppState {
                     promptFile = try writePromptFile(try PromptRenderer.render(template, pr: pr, path: folder))
                     files.append(promptFile!)
                     let isolation = kind == .review ? CommandBuilder.untrustedReviewFlags : CommandBuilder.untrustedCheckoutFlags
-                    flags = (kind == .review ? CommandBuilder.reviewOnlyFlags : []) + (isolate ? isolation : [])
+                    flags = (kind == .review ? CommandBuilder.reviewOnlyFlags(workspaceSettings.reviewMode) : []) + (isolate ? isolation : [])
                     if kind == .review {
                         systemFile = try writePromptFile(CommandBuilder.reviewOnlyInstructions)
                         files.append(systemFile!)
-                        permissionMode = "default"
+                        permissionMode = workspaceSettings.reviewMode.rawValue
                     } else if isolate {
                         permissionMode = "plan"
                     }
@@ -406,7 +409,7 @@ extension AppState {
         let review = task == .prompt(.review)
         if (isolate || review) && !warned {
             var missing = ["The review instructions are part of the prompt instead of the system prompt.",
-                           "The permission mode is whatever the desktop app uses, not pinned to default, and the auto mode rules for posting a confirmed review are not added."]
+                           "The permission mode is whatever the desktop app uses, not the one in Settings > Claude, and Claude Code does not ask before posting the review beyond what that mode does."]
             if isolate {
                 missing.append("This checkout's .claude settings, hooks, and .mcp.json servers are not blocked. The PR author wrote them, and its hooks run when the session starts.")
             }
