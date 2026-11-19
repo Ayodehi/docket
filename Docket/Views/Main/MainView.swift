@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MainView: View {
     @Environment(\.appState) private var app
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Group {
@@ -26,6 +27,7 @@ struct MainView: View {
             app.mainWindowVisibilityChanged(false)
         }
         .allowsFullScreen()
+        .onChange(of: app.openSettingsRequest) { openSettings() }
         .alert(app.workspaceAlert?.title ?? "", isPresented: Binding(get: { app.workspaceAlert != nil }, set: { if !$0 { app.workspaceAlert = nil } }),
                presenting: app.workspaceAlert) { alert in
             ForEach(Array(alert.actions.enumerated()), id: \.offset) { _, action in
