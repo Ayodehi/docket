@@ -178,6 +178,8 @@ final class AppState {
     @ObservationIgnored var confirmedRunHeads: Set<String> = []
     /// Set to a repo to open Settings > Run with it selected.
     var runSettingsRepo: String?
+    /// Incremented to ask a view with `openSettings` to bring up the Settings window.
+    var openSettingsRequest = 0
     /// Bumped after git operations so the detail pane reloads local status.
     var localInfoVersion = 0
     /// Authored PRs not updated within this many days stay out of the Inbox. 0 means no limit.

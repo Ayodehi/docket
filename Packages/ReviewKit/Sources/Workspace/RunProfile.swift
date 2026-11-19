@@ -130,7 +130,8 @@ public enum RunError: Error, Sendable, Equatable, CustomStringConvertible {
     case badFolder(String)
     case folderMissing(String)
     case envFileMissing(String)
-    case envFileInsideCheckout
+    /// The env file, and the clone or worktree of the repository that contains it.
+    case envFileInsideCheckout(file: String, checkout: String)
     case branchUnavailable
     case notIgnored(String)
     case destinationDiffers(String)
@@ -138,6 +139,8 @@ public enum RunError: Error, Sendable, Equatable, CustomStringConvertible {
     case contextRequired
     case badKubeName(String)
     case kubeLockMissing
+
+    private static func tilde(_ path: String) -> String { (path as NSString).abbreviatingWithTildeInPath }
 
     public var description: String {
         switch self {
@@ -147,7 +150,9 @@ public enum RunError: Error, Sendable, Equatable, CustomStringConvertible {
         case .badFolder(let folder): "\"\(folder)\" must be a folder inside the checkout, written as a relative path without \"..\"."
         case .folderMissing(let folder): "The checkout has no folder \"\(folder)\"."
         case .envFileMissing(let file): "The env file \((file as NSString).abbreviatingWithTildeInPath) was not found."
-        case .envFileInsideCheckout: "The env file must be outside the checkout, so it is never committed or replaced by the PR."
+        case .envFileInsideCheckout(let file, let checkout):
+            "The env file \(Self.tilde(file)) is inside \(Self.tilde(checkout)), a checkout of this repository. Move it to a folder outside the repository, such as ~/env, then choose it again in Settings > Run. "
+                + "Being git-ignored is not enough: inside a checkout, the PR's code and the Claude session reviewing it can read or replace the file, and a PR that edits .gitignore can get it committed."
         case .branchUnavailable: "This profile uses {branch}, which is only available for branches in the same repository with a safe name."
         case .notIgnored(let path): "\(path) is not ignored by git, so Docket did not copy the env file there. Add it to .gitignore or deliver the file through a variable."
         case .destinationDiffers(let path): "\(path) already exists with different contents. Docket did not replace it."
@@ -230,8 +235,10 @@ public enum RunPlanner {
         return resolved
     }
 
-    /// The env file, if any: absolute, present, and outside the checkout.
-    public static func envFile(of profile: RunProfile, checkout: String) throws -> String? {
+    /// The env file, if any: absolute, present, and outside `checkout` and every other checkout of
+    /// the repository in `otherCheckouts` (the main clone and its worktrees), so a run behaves the
+    /// same whichever of them it lands in.
+    public static func envFile(of profile: RunProfile, checkout: String, otherCheckouts: [String] = []) throws -> String? {
         guard let file = profile.envFile?.trimmingCharacters(in: .whitespaces), !file.isEmpty else { return nil }
         let expanded = (file as NSString).expandingTildeInPath
         var isDirectory: ObjCBool = false
@@ -239,9 +246,21 @@ public enum RunPlanner {
             throw RunError.envFileMissing(file)
         }
         let resolved = Safety.canonicalPath(expanded)
-        let root = Safety.canonicalPath(checkout)
-        if resolved == root || resolved.hasPrefix(root + "/") { throw RunError.envFileInsideCheckout }
+        if let root = checkoutContaining(resolved, among: [checkout] + otherCheckouts) {
+            throw RunError.envFileInsideCheckout(file: resolved, checkout: root)
+        }
         return resolved
+    }
+
+    /// The first of `checkouts` that contains `file` (or is it), with symlinks resolved on both
+    /// sides. For Settings, which warns before the first Run.
+    public static func checkoutContaining(_ file: String, among checkouts: [String]) -> String? {
+        let resolved = Safety.canonicalPath((file as NSString).expandingTildeInPath)
+        for checkout in checkouts where !checkout.isEmpty {
+            let root = Safety.canonicalPath(checkout)
+            if resolved == root || resolved.hasPrefix(root + "/") { return root }
+        }
+        return nil
     }
 
     /// `cd '<folder>' && export KEY='value' && ... && <command>`. The command is the user's own
@@ -250,7 +269,8 @@ public enum RunPlanner {
     /// With a context, `kubeLock` (from `writeKubeLock`) goes first in `KUBECONFIG`, DevSpace gets
     /// `--kube-context` (and `--namespace`) through `DEVSPACE_FLAGS`, and a guard stops the line
     /// unless kubectl reports that context as current and can resolve it.
-    public static func command(checkout: String, profile: RunProfile, values: RunValues, stop: Bool = false, kubeLock: String? = nil) throws -> String {
+    public static func command(checkout: String, profile: RunProfile, values: RunValues, stop: Bool = false, kubeLock: String? = nil,
+                               otherCheckouts: [String] = []) throws -> String {
         let fragment = (stop ? profile.stopCommand ?? "" : profile.command).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !fragment.isEmpty else { throw stop ? RunError.noStopCommand : RunError.emptyCommand }
         let context = profile.lockedContext
@@ -261,7 +281,7 @@ public enum RunPlanner {
         if context != nil && kubeLock == nil { throw RunError.kubeLockMissing }
         let folder = try folder(checkout: checkout, profile: profile)
         var steps = ["cd \(Safety.shellQuote(folder))"]
-        if let file = try envFile(of: profile, checkout: checkout), case .variable(let name) = profile.envFileDelivery {
+        if let file = try envFile(of: profile, checkout: checkout, otherCheckouts: otherCheckouts), case .variable(let name) = profile.envFileDelivery {
             guard isValidKey(name) else { throw RunError.badKey(name) }
             steps.append("export \(name)=\(Safety.shellQuote(file))")
         }
@@ -293,8 +313,9 @@ public enum RunPlanner {
 
     /// For `.copy` delivery: copies the env file into the run folder, mode 0600. Refuses a
     /// destination git does not ignore, and never replaces a file with different contents.
-    public static func installEnvFile(checkout: String, profile: RunProfile, git: GitWorkspace) async throws {
-        guard case .copy(let destination) = profile.envFileDelivery, let source = try envFile(of: profile, checkout: checkout) else { return }
+    public static func installEnvFile(checkout: String, profile: RunProfile, git: GitWorkspace, otherCheckouts: [String] = []) async throws {
+        guard case .copy(let destination) = profile.envFileDelivery,
+              let source = try envFile(of: profile, checkout: checkout, otherCheckouts: otherCheckouts) else { return }
         let relative = destination.trimmingCharacters(in: .whitespaces)
         guard !relative.isEmpty, isValidRelativePath(relative) else { throw RunError.badFolder(relative) }
         let folder = try folder(checkout: checkout, profile: profile)

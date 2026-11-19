@@ -168,9 +168,32 @@ import Testing
             try RunPlanner.command(checkout: checkout, profile: RunProfile(name: "W", command: "make", envFile: root + "/none.env"), values: v)
         }
         try write("X=1\n", to: checkout + "/inside.env")
-        #expect(throws: RunError.envFileInsideCheckout) {
+        #expect(throws: RunError.envFileInsideCheckout(file: checkout + "/inside.env", checkout: checkout)) {
             try RunPlanner.command(checkout: checkout, profile: RunProfile(name: "W", command: "make", envFile: checkout + "/inside.env"), values: v)
         }
+    }
+
+    /// A file in the main clone is refused for a run in a worktree too, so the result does not
+    /// depend on where the run lands.
+    @Test func envFileInAnyCheckoutOfTheRepoIsRefused() throws {
+        let (root, checkout, envFile) = try layout()
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        let clone = root + "/clone"
+        try mkdir(clone + "/manifests")
+        let inClone = clone + "/manifests/.env"
+        try write("X=1\n", to: inClone)
+        let profile = RunProfile(name: "W", command: "make", envFile: inClone, envFileDelivery: .variable("DEVSPACE_ENV_FILE"))
+        let error = RunError.envFileInsideCheckout(file: inClone, checkout: clone)
+        #expect(throws: error) {
+            try RunPlanner.command(checkout: checkout, profile: profile, values: values(checkout), otherCheckouts: [clone])
+        }
+        #expect(error.description.contains("clone/manifests/.env"))
+        #expect(error.description.contains("outside the repository"))
+        #expect(RunPlanner.checkoutContaining(inClone, among: [checkout, clone]) == clone)
+        #expect(RunPlanner.checkoutContaining(envFile, among: [checkout, clone, ""]) == nil)
+        var outside = profile
+        outside.envFile = envFile
+        #expect(try RunPlanner.command(checkout: checkout, profile: outside, values: values(checkout), otherCheckouts: [clone]).contains(envFile))
     }
 
     @Test func tooLongIsRejected() throws {

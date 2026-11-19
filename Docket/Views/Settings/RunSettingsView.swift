@@ -26,7 +26,7 @@ struct RunSettingsView: View {
             if !repo.isEmpty {
                 profilesSection
                 if let profile = settings.wrappedValue.profiles.first(where: { $0.id == selected }) {
-                    ProfileEditor(profile: profileBinding(profile))
+                    ProfileEditor(repo: repo, profile: profileBinding(profile))
                 }
             }
         }
@@ -123,8 +123,17 @@ struct RunSettingsView: View {
 
 private struct ProfileEditor: View {
     @Environment(\.appState) private var app
+    let repo: String
     @Binding var profile: RunProfile
     @State private var contexts: [String] = []
+    /// The repo's clone and worktrees, for the env file warning.
+    @State private var checkouts: [String] = []
+
+    /// The checkout that holds the env file, if any. Run refuses such a file, so say so here first.
+    private var envFileCheckout: String? {
+        guard let file = profile.envFile else { return nil }
+        return RunPlanner.checkoutContaining(file, among: checkouts + [app.clone(for: repo)?.path ?? "", app.workspaceSettings.worktreesFolder])
+    }
 
     private func optional(_ keyPath: WritableKeyPath<RunProfile, String?>) -> Binding<String> {
         Binding(get: { profile[keyPath: keyPath] ?? "" }, set: { profile[keyPath: keyPath] = $0.isEmpty ? nil : $0 })
@@ -176,6 +185,7 @@ private struct ProfileEditor: View {
                 .foregroundStyle(.secondary)
         }
         .task { contexts = await app.kubeContexts() }
+        .task(id: repo) { checkouts = await app.checkouts(of: repo) }
         Section {
             LabeledContent("Env file") {
                 HStack {
@@ -186,6 +196,11 @@ private struct ProfileEditor: View {
                         Button { profile.envFile = nil } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless)
                     }
                 }
+            }
+            if let checkout = envFileCheckout {
+                Label("This file is inside \((checkout as NSString).abbreviatingWithTildeInPath), a checkout of \(repo), so Run will refuse it. Move it to a folder outside the repository, such as ~/env, and choose it again.",
+                      systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(Tone.warn.text)
             }
             Picker("Deliver it by", selection: deliveryMode) {
                 Text("Setting a variable to its path").tag(DeliveryMode.variable)
@@ -203,7 +218,7 @@ private struct ProfileEditor: View {
         } header: {
             Text("Env file")
         } footer: {
-            Text("Keep the file outside your clones. A variable leaves nothing in the checkout. A copy is made only where git ignores it, and an existing file with different contents is never replaced.")
+            Text("Keep the file outside every clone and worktree of the repository, even if git ignores it there: the PR's code and the Claude session reviewing it can read files in the checkout, and a PR can change .gitignore. A variable leaves nothing in the checkout. A copy is made only where git ignores it, and an existing file with different contents is never replaced.")
                 .foregroundStyle(.secondary)
         }
         Section {

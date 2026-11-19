@@ -199,7 +199,7 @@ A run profile starts a PR's checkout locally with a command the user configured 
 | Folder | Relative to the checkout, for example `deploy`. Empty means the root. No `..`; with symlinks resolved it must stay inside the checkout. |
 | Command | A shell fragment the user writes, for example `devspace dev`. It can chain setup steps such as selecting a kube context. |
 | Stop command | Optional, for example `devspace purge`. Shown as Stop. |
-| Env file | An absolute path on this Mac, outside every checkout. |
+| Env file | An absolute path on this Mac, outside the main clone and every worktree of the repository. Settings warns when the chosen file is inside one, and Run refuses it wherever the run lands, with the file and checkout named. |
 | Delivery | **Variable**: export a variable set to the file's path (DevSpace reads `DEVSPACE_ENV_FILE`), so nothing is written into the checkout. **Copy**: copy the file to a path relative to the run folder, for tools that only read a fixed name such as `.env`. |
 | Variables | `NAME=value` pairs. Values are literal text, single-quoted as a whole. |
 | Kubernetes context | Locks the run to one context (see below). Required for DevSpace profiles. |
@@ -226,6 +226,7 @@ DevSpace profiles without a context are refused, for Run and Stop alike. Context
 - Docket-supplied values are single-quoted; the command fragment is the user's own setting and goes in as written.
 - The line must stay under the terminal's 1024-byte limit; a longer one is refused with a message to move variables into the env file.
 - For another person's PR, Docket asks first ("Run <author>'s code?") before Run or Stop, once per commit per app session. Both read the checkout's build files and configuration. The question is keyed to the commit checked out in the folder at that moment (`git rev-parse HEAD`), not the head Docket last synced, so a commit pushed after you confirmed asks again; the dialog says when the folder is not at the PR head Docket last saw.
+- The env file must be outside every checkout of the repository even when git ignores it there: the PR's build files and scripts and the Claude session reviewing it run in the checkout and can read or replace it, and a PR that edits `.gitignore` can make it show up as an untracked file and get committed. Tools such as DevSpace that look for `.env` next to their config can still use an outside file through Variable delivery (`DEVSPACE_ENV_FILE`).
 - Copy delivery checks `git check-ignore` for the destination and refuses one git would track. An existing file with the same contents is kept; one with different contents is never replaced. The copy is mode 0600.
 
 **Stop** runs the stop command, with the same folder and environment, in the PR's review worktree, or in the main clone when it is on the PR's branch. If neither has the PR checked out, Docket refuses rather than run in an unrelated checkout. It never creates a worktree or switches branches. Docket does not track whether a run is still going: closing the terminal or pressing Control-C ends the foreground process, and the stop command cleans up anything it left deployed.

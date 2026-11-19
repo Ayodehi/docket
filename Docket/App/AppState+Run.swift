@@ -85,16 +85,18 @@ extension AppState {
         let values = RunValues(path: Safety.canonicalPath(checkout), number: pr.number, repo: pr.repo, branch: branch)
         Task {
             do {
+                let others = await checkouts(of: pr.repo)
                 if !stop, case .copy = profile.envFileDelivery {
                     guard let workspace = gitWorkspace else { throw WorkspaceError.toolMissing(.git) }
-                    try await RunPlanner.installEnvFile(checkout: checkout, profile: profile, git: workspace)
+                    try await RunPlanner.installEnvFile(checkout: checkout, profile: profile, git: workspace, otherCheckouts: others)
                 }
                 var kubeLock: String?
                 if let context = profile.lockedContext {
                     let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
                     kubeLock = try RunPlanner.writeKubeLock(context: context, in: caches.appendingPathComponent("Docket/kube", isDirectory: true))
                 }
-                let command = try RunPlanner.command(checkout: checkout, profile: profile, values: values, stop: stop, kubeLock: kubeLock)
+                let command = try RunPlanner.command(checkout: checkout, profile: profile, values: values, stop: stop, kubeLock: kubeLock,
+                                                     otherCheckouts: others)
                 let folder = try RunPlanner.folder(checkout: checkout, profile: profile)
                 let outcome = try await launcher.runInTerminal(command, folder: folder)
                 if outcome == .copiedCommand {
@@ -102,9 +104,38 @@ extension AppState {
                 }
                 Log.workspace.notice("\(stop ? "Stopped" : "Started", privacy: .public) a run profile (\(profile.kind.rawValue, privacy: .public))")
                 localInfoVersion += 1
+            } catch let error as RunError {
+                if case .envFileInsideCheckout = error {
+                    workspaceAlert = WorkspaceAlert(title: "Move the env file out of the repository", message: error.description, actions: [
+                        .init(title: "Open Run Settings") { self.openRunSettings(pr.repo) },
+                        .init(title: "Cancel", role: .cancel) {},
+                    ])
+                    openMainRequest += 1
+                } else {
+                    show(error)
+                }
             } catch {
                 show(error)
             }
         }
+    }
+
+    /// Every checkout of `repo` Docket knows of: the main clone, its linked worktrees, and recorded
+    /// review worktrees. An env file inside any of them is refused, wherever the run lands.
+    func checkouts(of repo: String) async -> [String] {
+        var paths: [String] = []
+        if let clone = clone(for: repo) {
+            paths.append(clone.path)
+            if let workspace = gitWorkspace, let linked = try? await workspace.worktrees(of: clone.path) {
+                paths += linked.map(\.path)
+            }
+        }
+        paths += reviewWorktrees.filter { $0.repo == repo }.map(\.path)
+        return paths
+    }
+
+    func openRunSettings(_ repo: String) {
+        runSettingsRepo = repo
+        openSettingsRequest += 1
     }
 }
