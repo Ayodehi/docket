@@ -119,7 +119,10 @@ private struct BrowserView: View {
 
     @ViewBuilder private var detail: some View {
         if let pr = app.snapshot(id: app.browser.selection) {
+            // A fresh view per PR: macOS keeps nested Menu actions from when they were first built,
+            // so a reused view's submenus ("In a Worktree", for example) would act on the previous PR.
             PRDetailView(pr: pr)
+                .id(pr.id)
         } else {
             ContentUnavailableView("No PR selected", systemImage: "sidebar.right", description: Text("Select a PR to see checks, reviewers, and actions."))
         }
